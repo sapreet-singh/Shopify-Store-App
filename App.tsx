@@ -1,45 +1,31 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+import React from "react";
+import { NavigationContainer } from "@react-navigation/native";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { enableScreens } from "react-native-screens";
+import { AuthProvider } from "./src/context/AuthContext";
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+enableScreens();
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
+import ProductsStack from "./src/navigation/ProductsStack";
+import CartScreen from "./src/screens/Cart";
 
+const Tab = createBottomTabNavigator();
+
+export default function App() {
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <AuthProvider>
+      <NavigationContainer>
+        <Tab.Navigator
+          screenOptions={{
+            headerShown: false, // Stack navigator has its own header
+            tabBarActiveTintColor: "blue",
+            tabBarInactiveTintColor: "gray",
+          }}
+        >
+          <Tab.Screen name="Shop" component={ProductsStack} />
+          <Tab.Screen name="Cart" component={CartScreen} options={{ headerShown: true }} />
+        </Tab.Navigator>
+      </NavigationContainer>
+    </AuthProvider>
   );
 }
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
-
-export default App;
