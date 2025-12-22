@@ -3,7 +3,7 @@ import { View, FlatList, Text, Button, Alert, Linking, TouchableOpacity } from "
 import { useFocusEffect } from '@react-navigation/native';
 import { getCart, CartItem, getCurrentCartId, checkoutCart } from "../api/cart";
 
-export default function CartScreen() {
+export default function CartScreen({ navigation }: any) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartId, setLocalCartId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,10 @@ export default function CartScreen() {
           const res = await checkoutCart(cartId);
           const url = res.data?.checkoutUrl; 
           if (url) {
-              Linking.openURL(url);
+              navigation.navigate('Shop', { 
+                  screen: 'Checkout', 
+                  params: { url: url } 
+              });
           } else {
               console.log("Checkout response:", res.data);
               Alert.alert("Error", "Could not retrieve checkout URL.");

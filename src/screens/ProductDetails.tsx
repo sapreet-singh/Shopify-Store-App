@@ -1,6 +1,5 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, Linking } from "react-native";
-import { Product } from "../api/products";
 import { addToCart, buyProduct, createCart, getCurrentCartId } from "../api/cart";
 
 export default function ProductDetailsScreen({ route, navigation }: any) {
@@ -39,7 +38,7 @@ export default function ProductDetailsScreen({ route, navigation }: any) {
       const checkoutUrl = response.data?.checkoutUrl;
       
       if (checkoutUrl) {
-        Linking.openURL(checkoutUrl);
+        navigation.navigate("Checkout", { url: checkoutUrl });
       } else {
         console.log("Full Response:", response.data);
         Alert.alert("Error", "No checkout URL returned from server.");
