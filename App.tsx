@@ -5,6 +5,7 @@ import { enableScreens } from "react-native-screens";
 enableScreens();
 
 import ProductsScreen from "./src/screens/Products";
+import CartScreen from "./src/screens/Cart";
 
 const Tab = createBottomTabNavigator();
 
@@ -19,6 +20,7 @@ export default function App() {
         }}
       >
         <Tab.Screen name="Products" component={ProductsScreen} />
+        <Tab.Screen name="Cart" component={CartScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
