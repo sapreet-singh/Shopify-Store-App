@@ -4,9 +4,8 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { enableScreens } from "react-native-screens";
 enableScreens();
 
-import ProductsScreen from "./src/screens/Products";
+import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
-import LoginScreen from "./src/screens/Login";
 
 const Tab = createBottomTabNavigator();
 
@@ -15,14 +14,13 @@ export default function App() {
     <NavigationContainer>
       <Tab.Navigator
         screenOptions={{
-          headerShown: true,
+          headerShown: false, // Stack navigator has its own header
           tabBarActiveTintColor: "blue",
           tabBarInactiveTintColor: "gray",
         }}
       >
-        <Tab.Screen name="Products" component={ProductsScreen} />
-        <Tab.Screen name="Cart" component={CartScreen} />
-        <Tab.Screen name="Login" component={LoginScreen} />
+        <Tab.Screen name="Shop" component={ProductsStack} />
+        <Tab.Screen name="Cart" component={CartScreen} options={{ headerShown: true }} />
       </Tab.Navigator>
     </NavigationContainer>
   );
