@@ -1,24 +1,48 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, Linking } from "react-native";
 import { addToCart, buyProduct, createCart, getCurrentCartId } from "../api/cart";
+import { useAuth } from "../context/AuthContext";
 
 export default function ProductDetailsScreen({ route, navigation }: any) {
   const { product } = route.params;
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const { user, accessToken } = useAuth();
 
   const increaseQty = () => setQuantity(q => q + 1);
   const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
 
   const handleAddToCart = async () => {
+    if (!user) {
+        Alert.alert(
+            "Login Required",
+            "You need to login to add items to cart.",
+            [
+                { text: "Cancel", style: "cancel" },
+                { 
+                    text: "Login / Register", 
+                    onPress: () => navigation.navigate("Login", { 
+                        pendingItem: { 
+                            variantId: product.variantId, 
+                            quantity: quantity 
+                        }
+                    }) 
+                }
+            ]
+        );
+        return;
+    }
+
     setLoading(true);
     try {
       const cartId = getCurrentCartId();
+      const token = accessToken || undefined;
+      
       if (!cartId) {
-        await createCart(product.variantId, quantity);
+        await createCart(product.variantId, quantity, token);
         Alert.alert("Success", "Cart created and item added!");
       } else {
-        await addToCart(cartId, product.variantId, quantity);
+        await addToCart(cartId, product.variantId, quantity, token);
         Alert.alert("Success", "Item added to cart!");
       }
     } catch (error) {
