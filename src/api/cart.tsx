@@ -15,12 +15,10 @@ export const createCart = async (
   quantity: number,
   accessToken?: string
 ) => {
-  const res = await API.post("/api/cart/create", null, {
-    params: {
-      variantId,
-      quantity,
-      accessToken,
-    },
+  const res = await API.post("/api/cart/create", {
+    variantId,
+    quantity,
+    accessToken,
   });
   // Assuming the response might contain the cartId or cart object
   // If the API returns the cart ID, we should capture it.
@@ -37,13 +35,11 @@ export const addToCart = async (
   quantity: number,
   accessToken?: string
 ) => {
-  return API.post("/api/cart/add", null, {
-    params: {
-      cartId,
-      variantId,
-      quantity,
-      accessToken,
-    },
+  return API.post("/api/cart/add", {
+    cartId,
+    variantId,
+    quantity,
+    accessToken,
   });
 };
 
@@ -52,12 +48,10 @@ export const buyProduct = async (
   quantity: number,
   accessToken?: string
 ) => {
-  return API.post("/api/cart/buy-now", null, {
-    params: {
-      variantId,
-      quantity,
-      accessToken,
-    },
+  return API.post("/api/cart/buy-now", {
+    variantId,
+    quantity,
+    accessToken,
   });
 };
 

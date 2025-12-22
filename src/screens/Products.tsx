@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, Alert } from "react-native";
 import { getProducts, Product } from "../api/products";
 import { addToCart, createCart, buyProduct, getCurrentCartId } from "../api/cart";
+import { getAccessToken } from "../api/customer";
 
 export default function ProductsScreen() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -20,15 +21,16 @@ export default function ProductsScreen() {
   const handleAdd = async (variantId: string) => {
     try {
       const cartId = getCurrentCartId();
+      const accessToken = getAccessToken();
       if (!cartId) {
         // Create cart with first item
         console.log("Creating cart with item:", variantId);
-        await createCart(variantId, 1);
+        await createCart(variantId, 1, accessToken || undefined);
         Alert.alert("Success", "Cart created and item added!");
       } else {
         // Add to existing cart
         console.log("Adding to cart:", cartId, variantId);
-        await addToCart(cartId, variantId, 1);
+        await addToCart(cartId, variantId, 1, accessToken || undefined);
         Alert.alert("Success", "Item added to cart!");
       }
     } catch (error) {
@@ -40,7 +42,8 @@ export default function ProductsScreen() {
   const handleBuy = async (variantId: string) => {
     try {
       console.log("Buying item:", variantId);
-      await buyProduct(variantId, 1);
+      const accessToken = getAccessToken();
+      await buyProduct(variantId, 1, accessToken || undefined);
       Alert.alert("Success", "Purchase successful!");
     } catch (error) {
       console.error("Buy product failed", error);

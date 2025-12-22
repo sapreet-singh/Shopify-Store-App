@@ -6,6 +6,7 @@ enableScreens();
 
 import ProductsScreen from "./src/screens/Products";
 import CartScreen from "./src/screens/Cart";
+import LoginScreen from "./src/screens/Login";
 
 const Tab = createBottomTabNavigator();
 
@@ -21,6 +22,7 @@ export default function App() {
       >
         <Tab.Screen name="Products" component={ProductsScreen} />
         <Tab.Screen name="Cart" component={CartScreen} />
+        <Tab.Screen name="Login" component={LoginScreen} />
       </Tab.Navigator>
     </NavigationContainer>
   );
