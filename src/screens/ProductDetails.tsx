@@ -49,7 +49,8 @@ const { width } = Dimensions.get("window");
               await setCartId(res.id); // This will trigger refreshCart in context
               Alert.alert("Success", "Cart created and item added!");
           } else {
-              throw new Error("Failed to create cart");
+              Alert.alert("Error", "Could not create cart. Please try again.");
+              return;
           }
         } else {
           await addToCart(cartId, product.variantId, quantity, token);

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getCart, getCurrentCartId, CartItem } from '../api/cart';
+import { getCart, CartItem } from '../api/cart';
+import { useAuth } from './AuthContext';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,6 +26,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartId, setCartIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const { accessToken } = useAuth();
 
   // Load cartId from storage on mount
   useEffect(() => {
@@ -74,16 +76,20 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     
     setIsLoading(true);
     try {
-      const items = await getCart(idToFetch);
-      // Ensure it's an array
+      const items = await getCart(idToFetch, accessToken || undefined);
       if (Array.isArray(items)) {
         setCart(items);
       } else {
         console.warn("getCart response invalid", items);
         setCart([]);
       }
-    } catch (error) {
-      console.error("Failed to refresh cart", error);
+    } catch (error: any) {
+      if (error?.message === "CART_NOT_FOUND") {
+        await updateCartId(null);
+        setCart([]);
+      } else {
+        console.error("Failed to refresh cart", error);
+      }
     } finally {
       setIsLoading(false);
     }

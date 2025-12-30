@@ -3,7 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityInd
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { registerCustomer, loginCustomer } from '../api/customer';
 import { useAuth } from '../context/AuthContext';
-import { addToCart, createCart, getCurrentCartId } from '../api/cart';
+import { addToCart, createCart } from '../api/cart';
+import { useCart } from '../context/CartContext';
 
 export default function RegisterScreen() {
   const [firstName, setFirstName] = useState('');
@@ -15,6 +16,7 @@ export default function RegisterScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { login } = useAuth();
+  const { cartId, setCartId, refreshCart } = useCart();
   
   const pendingItem = route.params?.pendingItem;
 
@@ -74,12 +76,14 @@ export default function RegisterScreen() {
   const handlePendingItem = async (token: string) => {
     try {
         const { variantId, quantity } = pendingItem;
-        const cartId = getCurrentCartId();
-        
         if (!cartId) {
-            await createCart(variantId, quantity, token);
+            const res = await createCart(variantId, quantity, token);
+            if (res && res.id) {
+                await setCartId(res.id);
+            }
         } else {
             await addToCart(cartId, variantId, quantity, token);
+            await refreshCart();
         }
         
         Alert.alert("Success", "Registered and item added to cart!");
