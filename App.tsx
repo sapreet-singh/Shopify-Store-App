@@ -9,6 +9,7 @@ enableScreens();
 
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
+import ProfileScreen from "./src/screens/Profile";
 
 const Tab = createBottomTabNavigator();
 
@@ -31,6 +32,13 @@ export default function App() {
               options={{ 
                 headerShown: true,
                 tabBarBadge: undefined
+              }} 
+            />
+            <Tab.Screen 
+              name="Profile" 
+              component={ProfileScreen} 
+              options={{ 
+                headerShown: true
               }} 
             />
           </Tab.Navigator>
