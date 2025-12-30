@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, Linking, FlatList, Dimensions } from "react-native";
-import { addToCart, buyProduct, createCart, getCurrentCartId } from "../api/cart";
+import { addToCart, buyProduct, createCart } from "../api/cart";
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 
 const { width } = Dimensions.get("window");
   
@@ -11,6 +12,7 @@ const { width } = Dimensions.get("window");
     const [loading, setLoading] = useState(false);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const { user, accessToken } = useAuth();
+    const { refreshCart, cartId, setCartId } = useCart();
   
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
@@ -39,14 +41,19 @@ const { width } = Dimensions.get("window");
   
       setLoading(true);
       try {
-        const cartId = getCurrentCartId();
         const token = accessToken || undefined;
         
         if (!cartId) {
-          await createCart(product.variantId, quantity, token);
-          Alert.alert("Success", "Cart created and item added!");
+          const res = await createCart(product.variantId, quantity, token);
+          if (res && res.id) {
+              await setCartId(res.id); // This will trigger refreshCart in context
+              Alert.alert("Success", "Cart created and item added!");
+          } else {
+              throw new Error("Failed to create cart");
+          }
         } else {
           await addToCart(cartId, product.variantId, quantity, token);
+          await refreshCart();
           Alert.alert("Success", "Item added to cart!");
         }
       } catch (error) {

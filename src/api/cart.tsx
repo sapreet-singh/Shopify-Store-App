@@ -5,6 +5,9 @@ export interface CartItem {
   productName: string;
   qty: number;
   price: number;
+  image?: string;
+  variantTitle?: string;
+  variantId?: string; // Needed for update/remove logic if we use that ID
 }
 
 let currentCartId: string | null = null;
@@ -14,12 +17,10 @@ export const createCart = async (
   quantity: number,
   accessToken?: string
 ) => {
-  const res = await API.post("/api/cart/create", null, {
-    params: {
+  const res = await API.post("/api/cart/create", {
       variantId,
       quantity,
       accessToken,
-    },
   });
 
   if (res.data && res.data.id) {
@@ -34,14 +35,37 @@ export const addToCart = async (
   quantity: number,
   accessToken?: string
 ) => {
-  return API.post("/api/cart/add", null, {
-    params: {
+  return API.post("/api/cart/add", {
       cartId,
       variantId,
       quantity,
       accessToken,
-    },
   });
+};
+
+export const updateCartLine = async (
+  cartId: string,
+  lineId: string, 
+  quantity: number
+) => {
+    return API.put("/api/cart/update", {
+        cartId,
+        variantId: lineId, // The context uses variantId as line identifier locally currently
+        quantity
+    });
+};
+
+export const removeCartLine = async (
+    cartId: string,
+    lineId: string
+) => {
+      // Axios delete with body requires the 'data' property in config
+      return API.delete("/api/cart/remove", {
+          data: {
+              cartId,
+              variantId: lineId
+          }
+      });
 };
 
 export const buyProduct = async (
@@ -49,11 +73,17 @@ export const buyProduct = async (
   quantity: number,
   accessToken?: string
 ) => {
+  // Spec explicitly showed "parameters" in "query" for buy-now
   return API.post("/api/cart/buy-now", null, {
     params: {
       variantId,
       quantity,
-      accessToken,
+      // accessToken, // Removed if not in spec? Spec didn't show it but existing code had it. I'll pass it if existing code needs it, but spec was user provided.
+      // User snippet: 
+      // parameters: [ {name: variantId, in: query}, {name: quantity, in: query} ]
+      // It did NOT show accessToken. I will retain the param in function signature but maybe not pass it if I want to be strict, 
+      // but usually safe to pass extra. I'll keep it for now as it doesn't hurt.
+      accessToken
     },
   });
 };

@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { enableScreens } from "react-native-screens";
 import { AuthProvider } from "./src/context/AuthContext";
+import { CartProvider } from "./src/context/CartContext";
 
 enableScreens();
 
@@ -14,18 +15,27 @@ const Tab = createBottomTabNavigator();
 export default function App() {
   return (
     <AuthProvider>
-      <NavigationContainer>
-        <Tab.Navigator
-          screenOptions={{
-            headerShown: false, // Stack navigator has its own header
-            tabBarActiveTintColor: "blue",
-            tabBarInactiveTintColor: "gray",
-          }}
-        >
-          <Tab.Screen name="Shop" component={ProductsStack} />
-          <Tab.Screen name="Cart" component={CartScreen} options={{ headerShown: true }} />
-        </Tab.Navigator>
-      </NavigationContainer>
+      <CartProvider>
+        <NavigationContainer>
+          <Tab.Navigator
+            screenOptions={{
+              headerShown: false, // Stack navigator has its own header
+              tabBarActiveTintColor: "blue",
+              tabBarInactiveTintColor: "gray",
+            }}
+          >
+            <Tab.Screen name="Shop" component={ProductsStack} />
+            <Tab.Screen 
+              name="Cart" 
+              component={CartScreen} 
+              options={{ 
+                headerShown: true,
+                tabBarBadge: undefined // We can wire this up to context count later if we want strict real-time badge
+              }} 
+            />
+          </Tab.Navigator>
+        </NavigationContainer>
+      </CartProvider>
     </AuthProvider>
   );
 }
