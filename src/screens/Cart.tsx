@@ -102,14 +102,8 @@ export default function CartScreen({ navigation }: any) {
     <View style={styles.container}>
         <FlatList
             data={cart}
-            keyExtractor={(item) => item.id.toString()} // Assuming id is unique line item id
+            keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => {
-                // Determine the ID to use for updates/removes. 
-                // If the backend assumes 'variantId' for updates, use that.
-                // If it assumes a unique 'lineId' (which might be item.id), use that.
-                // Based on previous code, let's try using variantId if available, else fallback to id.
-                // However, the api.tsx code I wrote expects 'lineId' and passes it as 'variantId' param.
-                // This is a crucial assumption. I'll pass item.variantId || item.id for now.
                 const targetId = item.variantId || item.id.toString(); 
 
                 return (

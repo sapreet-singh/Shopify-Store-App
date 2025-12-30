@@ -26,7 +26,7 @@ const { width } = Dimensions.get("window");
               [
                   { text: "Cancel", style: "cancel" },
                   { 
-                      text: "Login / Register", 
+                      text: "Login", 
                       onPress: () => navigation.navigate("Login", { 
                           pendingItem: { 
                               variantId: product.variantId, 
@@ -46,7 +46,7 @@ const { width } = Dimensions.get("window");
         if (!cartId) {
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
-              await setCartId(res.id); // This will trigger refreshCart in context
+              await setCartId(res.id);
               Alert.alert("Success", "Cart created and item added!");
           } else {
               Alert.alert("Error", "Could not create cart. Please try again.");
@@ -66,7 +66,6 @@ const { width } = Dimensions.get("window");
     };
   
     const handleBuyNow = async () => {
-       // ... (existing buy logic remains unchanged)
       setLoading(true);
       try {
         console.log("Buying item:", product.variantId);

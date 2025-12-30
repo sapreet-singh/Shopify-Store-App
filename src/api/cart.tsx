@@ -8,7 +8,7 @@ export interface CartItem {
   price: number;
   image?: string;
   variantTitle?: string;
-  variantId?: string; // Needed for update/remove logic if we use that ID
+  variantId?: string;
 }
 
 let currentCartId: string | null = null;
@@ -51,23 +51,15 @@ export const addToCart = async (
   });
 };
 
-export const updateCartLine = async (
-  cartId: string,
-  lineId: string, 
-  quantity: number
-) => {
+export const updateCartLine = async ( cartId: string, lineId: string, quantity: number) => {
     return API.put("/api/cart/update", {
         cartId,
-        variantId: lineId, // The context uses variantId as line identifier locally currently
+        variantId: lineId,
         quantity
     });
 };
 
-export const removeCartLine = async (
-    cartId: string,
-    lineId: string
-) => {
-      // Axios delete with body requires the 'data' property in config
+export const removeCartLine = async ( cartId: string, lineId: string ) => {
       return API.delete("/api/cart/remove", {
           data: {
               cartId,
@@ -76,21 +68,11 @@ export const removeCartLine = async (
       });
 };
 
-export const buyProduct = async (
-  variantId: string,
-  quantity: number,
-  accessToken?: string
-) => {
-  // Spec explicitly showed "parameters" in "query" for buy-now
+export const buyProduct = async ( variantId: string, quantity: number, accessToken?: string ) => {
   return API.post("/api/cart/buy-now", null, {
     params: {
       variantId,
       quantity,
-      // accessToken, // Removed if not in spec? Spec didn't show it but existing code had it. I'll pass it if existing code needs it, but spec was user provided.
-      // User snippet: 
-      // parameters: [ {name: variantId, in: query}, {name: quantity, in: query} ]
-      // It did NOT show accessToken. I will retain the param in function signature but maybe not pass it if I want to be strict, 
-      // but usually safe to pass extra. I'll keep it for now as it doesn't hurt.
       accessToken
     },
   });

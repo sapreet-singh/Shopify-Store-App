@@ -30,7 +30,7 @@ export default function App() {
               component={CartScreen} 
               options={{ 
                 headerShown: true,
-                tabBarBadge: undefined // We can wire this up to context count later if we want strict real-time badge
+                tabBarBadge: undefined
               }} 
             />
           </Tab.Navigator>

@@ -15,13 +15,8 @@ export interface AuthResponse {
   errors?: any;
 }
 
-export const registerCustomer = async (
-  email: string,
-  password: string,
-  firstName: string,
-  lastName: string = ""
-) => {
-
+export const registerCustomer = async ( email: string, password: string, 
+  firstName: string, lastName: string = "" ) => {
   return API.post("/api/storefront/customer/create", null, {
     params: {
       email,

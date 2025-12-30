@@ -28,15 +28,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const { accessToken } = useAuth();
 
-  // Load cartId from storage on mount
   useEffect(() => {
       const loadCartId = async () => {
           try {
               const storedId = await AsyncStorage.getItem('cartId');
               if (storedId) {
                   setCartIdState(storedId);
-                  // also sync to api module if needed, although we are moving away from it
-                  // setCurrentCartId(storedId); 
               }
           } catch (e) {
               console.error("Failed to load cartId", e);
@@ -45,7 +42,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       loadCartId();
   }, []);
 
-  // Fetch cart whenever cartId changes
   useEffect(() => {
       if (cartId) {
           refreshCart(cartId);
