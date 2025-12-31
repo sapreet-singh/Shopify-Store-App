@@ -85,12 +85,18 @@ export const checkoutCart = async (cartId: string) => {
   return API.get(`/api/cart/checkout/${encodeURIComponent(cartId)}`);
 };
 
-export const getCart = async (cartId: string, accessToken?: string): Promise<CartItem[]> => {
+export interface CartFetchResult {
+  items: CartItem[];
+  checkoutUrl?: string | null;
+}
+
+export const getCart = async (cartId: string, accessToken?: string): Promise<CartFetchResult> => {
   try {
       const res = await API.get(`/api/cart/${encodeURIComponent(cartId)}`, {
         params: { accessToken }
       });
-      const edges = res.data?.data?.cart?.lines?.edges || [];
+      const cartNode = res.data?.data?.cart || {};
+      const edges = cartNode?.lines?.edges || [];
       const items: CartItem[] = edges.map((edge: any) => {
         const node = edge?.node || {};
         const merch = node?.merchandise || {};
@@ -105,7 +111,8 @@ export const getCart = async (cartId: string, accessToken?: string): Promise<Car
           variantId: merch?.id
         };
       });
-      return items;
+      const checkoutUrl: string | null = cartNode?.checkoutUrl ?? res.data?.checkoutUrl ?? null;
+      return { items, checkoutUrl };
   } catch (error: any) {
       if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 400)) {
         throw new Error("CART_NOT_FOUND");

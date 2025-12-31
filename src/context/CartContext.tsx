@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getCart, CartItem } from '../api/cart';
+import { getCart, CartItem, CartFetchResult } from '../api/cart';
 import { useAuth } from './AuthContext';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -11,6 +11,7 @@ interface CartContextType {
   refreshCart: () => Promise<void>;
   cartId: string | null;
   setCartId: (id: string | null) => Promise<void>;
+  checkoutUrl: string | null;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -20,12 +21,14 @@ const CartContext = createContext<CartContextType>({
   refreshCart: async () => {},
   cartId: null,
   setCartId: async () => {},
+  checkoutUrl: null,
 });
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartId, setCartIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const { accessToken } = useAuth();
 
   useEffect(() => {
@@ -67,22 +70,26 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     const idToFetch = specificId || cartId;
     if (!idToFetch) {
         setCart([]);
+        setCheckoutUrl(null);
         return;
     }
     
     setIsLoading(true);
     try {
-      const items = await getCart(idToFetch, accessToken || undefined);
-      if (Array.isArray(items)) {
-        setCart(items);
+      const result: CartFetchResult = await getCart(idToFetch, accessToken || undefined);
+      if (Array.isArray(result?.items)) {
+        setCart(result.items);
+        setCheckoutUrl(result.checkoutUrl ?? null);
       } else {
-        console.warn("getCart response invalid", items);
+        console.warn("getCart response invalid", result);
         setCart([]);
+        setCheckoutUrl(null);
       }
     } catch (error: any) {
       if (error?.message === "CART_NOT_FOUND") {
         await updateCartId(null);
         setCart([]);
+        setCheckoutUrl(null);
       } else {
         console.error("Failed to refresh cart", error);
       }
@@ -94,7 +101,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const cartCount = cart.reduce((total, item) => total + item.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cart, cartCount, isLoading, refreshCart: () => refreshCart(), cartId, setCartId: updateCartId }}>
+    <CartContext.Provider value={{ cart, cartCount, isLoading, refreshCart: () => refreshCart(), cartId, setCartId: updateCartId, checkoutUrl }}>
       {children}
     </CartContext.Provider>
   );

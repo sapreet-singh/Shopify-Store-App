@@ -1,12 +1,12 @@
 import React, { useCallback, useState } from "react";
 import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet } from "react-native";
 import { useFocusEffect } from '@react-navigation/native';
-import { updateCartLine, removeCartLine, checkoutCart } from "../api/cart";
+import { updateCartLine, removeCartLine } from "../api/cart";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 
 export default function CartScreen({ navigation }: any) {
-  const { cart, isLoading: ctxLoading, refreshCart, cartId } = useCart();
+  const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl } = useCart();
   const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
@@ -61,26 +61,15 @@ export default function CartScreen({ navigation }: any) {
     );
   };
 
-  const handleCheckout = async () => {
-      if (!cartId) return;
-      
-      setLoading(true);
-      try {
-          const res = await checkoutCart(cartId);
-          const url = res.data?.checkoutUrl; 
-          if (url) {
-              navigation.navigate('Shop', { 
-                  screen: 'Checkout', 
-                  params: { url: url } 
-              });
-          } else {
-              Alert.alert("Error", "Could not retrieve checkout URL.");
-          }
-      } catch (error) {
-          Alert.alert("Error", "Failed to initiate checkout.");
-      } finally {
-          setLoading(false);
+  const handleCheckout = () => {
+      if (!checkoutUrl) {
+          Alert.alert("Error", "Checkout URL not available. Please refresh the cart.");
+          return;
       }
+      navigation.navigate('Shop', { 
+          screen: 'Checkout', 
+          params: { url: checkoutUrl } 
+      });
   };
 
   if (ctxLoading && cart.length === 0) {
@@ -153,7 +142,7 @@ export default function CartScreen({ navigation }: any) {
             <TouchableOpacity 
                 style={styles.checkoutBtn}
                 onPress={handleCheckout}
-                disabled={loading}
+                disabled={loading || !checkoutUrl}
             >
                 {loading ? (
                     <ActivityIndicator color="#fff" />

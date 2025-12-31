@@ -47,7 +47,9 @@ const { width } = Dimensions.get("window");
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
               await setCartId(res.id);
+              await refreshCart();
               Alert.alert("Success", "Cart created and item added!");
+              navigation.navigate("Cart");
           } else {
               Alert.alert("Error", "Could not create cart. Please try again.");
               return;
@@ -56,6 +58,7 @@ const { width } = Dimensions.get("window");
           await addToCart(cartId, product.variantId, quantity, token);
           await refreshCart();
           Alert.alert("Success", "Item added to cart!");
+          navigation.navigate("Cart");
         }
       } catch (error) {
         console.error("Add to cart failed", error);
