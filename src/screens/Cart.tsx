@@ -3,9 +3,11 @@ import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator
 import { useFocusEffect } from '@react-navigation/native';
 import { updateCartLine, removeCartLine, checkoutCart } from "../api/cart";
 import { useCart } from "../context/CartContext";
+import { useAuth } from "../context/AuthContext";
 
 export default function CartScreen({ navigation }: any) {
   const { cart, isLoading: ctxLoading, refreshCart, cartId } = useCart();
+  const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
 
@@ -22,7 +24,7 @@ export default function CartScreen({ navigation }: any) {
     setUpdatingItems(prev => ({ ...prev, [lineId]: true }));
     try {
         if (cartId) {
-            await updateCartLine(cartId, lineId, newQty);
+            await updateCartLine(cartId, lineId, newQty, accessToken || undefined);
             await refreshCart();
         }
     } catch (error) {
@@ -45,7 +47,7 @@ export default function CartScreen({ navigation }: any) {
                     setLoading(true);
                     try {
                         if (cartId) {
-                            await removeCartLine(cartId, lineId);
+                            await removeCartLine(cartId, lineId, accessToken || undefined);
                             await refreshCart();
                         }
                     } catch (error) {
@@ -104,7 +106,7 @@ export default function CartScreen({ navigation }: any) {
             data={cart}
             keyExtractor={(item) => item.id.toString()}
             renderItem={({ item }) => {
-                const targetId = item.variantId || item.id.toString(); 
+                const targetId = item.id.toString();
 
                 return (
                     <View style={styles.cartItem}>

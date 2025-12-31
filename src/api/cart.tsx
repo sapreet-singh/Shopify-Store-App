@@ -51,20 +51,23 @@ export const addToCart = async (
   });
 };
 
-export const updateCartLine = async ( cartId: string, lineId: string, quantity: number) => {
+export const updateCartLine = async ( cartId: string, lineId: string, quantity: number, accessToken?: string ) => {
     return API.put("/api/cart/update", {
         cartId,
-        variantId: lineId,
+        lineId: lineId,
         quantity
+    }, {
+        params: { accessToken }
     });
 };
 
-export const removeCartLine = async ( cartId: string, lineId: string ) => {
+export const removeCartLine = async ( cartId: string, lineId: string, accessToken?: string ) => {
       return API.delete("/api/cart/remove", {
           data: {
               cartId,
-              variantId: lineId
-          }
+              lineId: lineId
+          },
+          params: { accessToken }
       });
 };
 
