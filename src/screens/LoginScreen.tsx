@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { loginCustomer } from '../api/customer';
+import { loginCustomer, getCustomerProfile, Customer } from '../api/customer';
 import { useAuth } from '../context/AuthContext';
-import { addToCart, createCart, getCurrentCartId } from '../api/cart';
+import { addToCart, createCart } from '../api/cart';
+import { useCart } from '../context/CartContext';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -13,6 +14,7 @@ export default function LoginScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { login } = useAuth();
+  const { cartId, setCartId, refreshCart } = useCart();
 
   const pendingItem = route.params?.pendingItem;
 
@@ -28,9 +30,22 @@ export default function LoginScreen() {
       const { accessToken } = res.data;
       
       if (accessToken) {
-        const customerData = { email: email, displayName: email.split('@')[0], id: 'unknown' };
-        
-        await login(customerData, accessToken);
+        let customerData: Customer = { email: email, displayName: email.split('@')[0], id: 'unknown' };
+        try {
+          const prof = await getCustomerProfile(accessToken);
+          const data = prof?.data || {};
+          const customer = data.customer || data.data || data;
+          if (customer?.email) {
+            customerData = {
+              id: customer?.id || 'unknown',
+              displayName: customer?.displayName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || email.split('@')[0],
+              email: customer?.email,
+              firstName: customer?.firstName,
+              lastName: customer?.lastName
+            };
+          }
+        } catch {}
+        await login(customerData as any, accessToken);
         
         if (pendingItem) {
            await handlePendingItem(accessToken);
@@ -54,12 +69,14 @@ export default function LoginScreen() {
   const handlePendingItem = async (token: string) => {
       try {
           const { variantId, quantity } = pendingItem;
-          const cartId = getCurrentCartId();
-          
           if (!cartId) {
-              await createCart(variantId, quantity, token);
+              const res = await createCart(variantId, quantity, token);
+              if (res && res.id) {
+                  await setCartId(res.id);
+              }
           } else {
               await addToCart(cartId, variantId, quantity, token);
+              await refreshCart();
           }
           
           Alert.alert("Success", "Logged in and item added to cart!");

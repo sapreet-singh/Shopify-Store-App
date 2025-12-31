@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const API = axios.create({
-   baseURL: "https://0bde4872ce2e.ngrok-free.app",
+  baseURL: "https://shopifyintegrationapi.onrender.com",
   headers: {
     Accept: "*/*",
     "Content-Type": "application/json",

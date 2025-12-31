@@ -14,7 +14,10 @@ export default function ProductsStack() {
       <Stack.Screen 
         name="ProductsList" 
         component={ProductsScreen} 
-        options={{ title: "Products" }}
+        options={{ 
+          title: "Products",
+          gestureEnabled: false 
+        }}
       />
       <Stack.Screen 
         name="ProductDetails" 
