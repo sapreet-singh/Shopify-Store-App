@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, FlatList, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, FlatList, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid } from "react-native";
 import { useAuth } from "../context/AuthContext";
 import { useNavigation } from "@react-navigation/native";
-import { getCustomerProfile, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
+import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -22,19 +22,47 @@ export default function ProfileScreen() {
     phone: "",
   });
 
+  const notify = (msg: string) => {
+    if (Platform.OS === "android") {
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
+    } else {
+      Alert.alert("Success", msg);
+    }
+  };
+
+  const extractId = (obj: any) => obj?.id || obj?.Id || obj?.addressId;
+  const normalizeAddresses = (customer: any, list: any[], defIdOverride?: string) => {
+    const defObj = customer?.defaultAddress || customer?.DefaultAddress;
+    const defId = defIdOverride ?? extractId(defObj);
+    return (Array.isArray(list) ? list : []).map((a) => {
+      const aid = extractId(a);
+      const existing = !!(a?.isDefault || a?.default || a?.isDefaultAddress);
+      const computed = defId ? String(aid) === String(defId) : existing;
+      return { ...a, isDefault: computed };
+    });
+  };
+
+  const refreshAll = async (token: string) => {
+    const [profRes, addrRes] = await Promise.all([getCustomerProfile(token), getCustomerAddresses(token)]);
+    const pData = profRes?.data || {};
+    const customer = pData.customer || pData.data || pData;
+    setProfile(customer);
+    const aData = addrRes?.data || {};
+    const defAObj = aData?.defaultAddress || aData?.DefaultAddress || aData?.data?.defaultAddress;
+    const defAId = extractId(defAObj);
+    const addrs = Array.isArray(aData)
+      ? aData
+      : (aData.addresses || aData.data?.addresses || customer?.addresses || []);
+    const normalized = normalizeAddresses(customer, Array.isArray(addrs) ? addrs : [], defAId);
+    setAddresses(normalized);
+  };
+
   useEffect(() => {
     if (!accessToken) return;
     setLoading(true);
-    getCustomerProfile(accessToken)
-      .then((res) => {
-        const data = res?.data || {};
-        const customer = data.customer || data.data || data;
-        setProfile(customer);
-        const addrs = customer?.addresses || data?.addresses || [];
-        setAddresses(Array.isArray(addrs) ? addrs : []);
-      })
-      .catch((e) => {
-        Alert.alert("Error", "Failed to load profile");
+    refreshAll(accessToken)
+      .catch(() => {
+        Alert.alert("Error", "Failed to load profile or addresses");
       })
       .finally(() => setLoading(false));
   }, [accessToken]);
@@ -86,12 +114,9 @@ export default function ProfileScreen() {
       } else {
         await addAddress(form);
       }
-      const res = await getCustomerProfile(accessToken);
-      const data = res?.data || {};
-      const customer = data.customer || data.data || data;
-      const addrs = customer?.addresses || data?.addresses || [];
-      setAddresses(Array.isArray(addrs) ? addrs : []);
+      await refreshAll(accessToken);
       setFormVisible(false);
+      notify(editMode ? "Address updated" : "Address added");
     } catch (e: any) {
       const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || "Failed to save address";
       Alert.alert("Error", msg);
@@ -106,12 +131,10 @@ export default function ProfileScreen() {
     if (!id) return;
     try {
       setLoading(true);
+      setAddresses((prev) => prev.filter((a) => String(a?.id || a?.addressId) !== String(id)));
       await deleteAddress(String(id), accessToken);
-      const res = await getCustomerProfile(accessToken);
-      const data = res?.data || {};
-      const customer = data.customer || data.data || data;
-      const addrs = customer?.addresses || data?.addresses || [];
-      setAddresses(Array.isArray(addrs) ? addrs : []);
+      await refreshAll(accessToken);
+      notify("Address deleted");
     } catch (e) {
       Alert.alert("Error", "Failed to delete address");
     } finally {
@@ -125,12 +148,16 @@ export default function ProfileScreen() {
     if (!id) return;
     try {
       setLoading(true);
+      setAddresses((prev) =>
+        prev.map((a) => {
+          const aid = String(a?.id || a?.addressId);
+          const isDef = aid === String(id);
+          return { ...a, isDefault: isDef };
+        })
+      );
       await setDefaultAddress({ id: String(id) });
-      const res = await getCustomerProfile(accessToken);
-      const data = res?.data || {};
-      const customer = data.customer || data.data || data;
-      const addrs = customer?.addresses || data?.addresses || [];
-      setAddresses(Array.isArray(addrs) ? addrs : []);
+      await refreshAll(accessToken);
+      notify("Default address updated");
     } catch (e) {
       Alert.alert("Error", "Failed to set default");
     } finally {

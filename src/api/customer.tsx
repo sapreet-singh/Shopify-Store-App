@@ -71,17 +71,26 @@ export const getCustomerProfile = async (accessToken: string) => {
   });
 };
 
+export const getCustomerAddresses = async (accessToken?: string) => {
+  try { console.log("getCustomerAddresses", { accessToken }); } catch {}
+  return API.get("/api/customer/address", {
+    params: { accessToken },
+  });
+};
+
 export const addAddress = async (request: AddAddressRequest) => {
   try { console.log("addAddress", request); } catch {}
   const token = await AsyncStorage.getItem("accessToken");
   const payload = {
-    accessToken: token || undefined,
-    address: {
-      address1: request.address1,
-      city: request.city,
-      province: request.province,
-      country: request.country,
-      zip: request.zip,
+    AccessToken: token || undefined,
+    Address: {
+      Address1: request.address1,
+      Address2: request.address2,
+      City: request.city,
+      Province: request.province,
+      Country: request.country,
+      Zip: request.zip,
+      Phone: request.phone,
     },
   };
   return API.post("/api/customer/address", payload);
@@ -91,14 +100,16 @@ export const updateAddress = async (request: UpdateAddressRequest) => {
   try { console.log("updateAddress", request); } catch {}
   const token = await AsyncStorage.getItem("accessToken");
   const payload = {
-    accessToken: token || undefined,
-    id: request.id,
-    address: {
-      address1: request.address1,
-      city: request.city,
-      province: request.province,
-      country: request.country,
-      zip: request.zip,
+    AccessToken: token || undefined,
+    AddressId: request.id,
+    Address: {
+      Address1: request.address1,
+      Address2: request.address2,
+      City: request.city,
+      Province: request.province,
+      Country: request.country,
+      Zip: request.zip,
+      Phone: request.phone,
     },
   };
   return API.put("/api/customer/address", payload);
@@ -115,8 +126,8 @@ export const setDefaultAddress = async (request: SetDefaultAddressRequest) => {
   try { console.log("setDefaultAddress", request); } catch {}
   const token = await AsyncStorage.getItem("accessToken");
   const payload = {
-    accessToken: token || undefined,
-    id: request.id,
+    AccessToken: token || undefined,
+    AddressId: request.id,
   };
   return API.put("/api/customer/address/default", payload);
 };
