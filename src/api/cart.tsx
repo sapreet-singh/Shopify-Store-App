@@ -95,6 +95,25 @@ export const getCart = async (cartId: string, accessToken?: string): Promise<Car
       const res = await API.get(`/api/cart/${encodeURIComponent(cartId)}`, {
         params: { accessToken }
       });
+
+      // Handle new API response structure
+      if (res.data && res.data.items && Array.isArray(res.data.items)) {
+        const items: CartItem[] = res.data.items.map((item: any) => ({
+          id: item.lineId,
+          productName: item.productTitle,
+          qty: item.quantity,
+          price: item.price,
+          image: item.imageUrl,
+          variantTitle: item.variantTitle,
+          variantId: item.productId // Mapping the provided productId (which is a Variant GID) to variantId
+        }));
+        return { 
+          items, 
+          checkoutUrl: res.data.checkoutUrl 
+        };
+      }
+
+      // Fallback for previous structure (GraphQL style)
       const cartNode = res.data?.data?.cart || {};
       const edges = cartNode?.lines?.edges || [];
       const items: CartItem[] = edges.map((edge: any) => {

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getCart, CartItem, CartFetchResult } from '../api/cart';
 import { useAuth } from './AuthContext';
 
@@ -66,7 +66,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       }
   };
 
-  const refreshCart = async (specificId?: string) => {
+  const refreshCart = useCallback(async (specificId?: string) => {
     const idToFetch = specificId || cartId;
     if (!idToFetch) {
         setCart([]);
@@ -96,12 +96,12 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [cartId, accessToken]);
 
   const cartCount = cart.reduce((total, item) => total + item.qty, 0);
 
   return (
-    <CartContext.Provider value={{ cart, cartCount, isLoading, refreshCart: () => refreshCart(), cartId, setCartId: updateCartId, checkoutUrl }}>
+    <CartContext.Provider value={{ cart, cartCount, isLoading, refreshCart, cartId, setCartId: updateCartId, checkoutUrl }}>
       {children}
     </CartContext.Provider>
   );

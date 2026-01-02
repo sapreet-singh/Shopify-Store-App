@@ -14,7 +14,7 @@ export default function CartScreen({ navigation }: any) {
   useFocusEffect(
     useCallback(() => {
       refreshCart();
-    }, [])
+    }, [refreshCart])
   );
 
   const handleUpdateQuantity = async (lineId: string, currentQty: number, change: number) => {
@@ -102,7 +102,9 @@ export default function CartScreen({ navigation }: any) {
                         {item.image && <Image source={{ uri: item.image }} style={styles.itemImage} />}
                         <View style={styles.itemDetails}>
                             <Text style={styles.itemTitle}>{item.productName}</Text>
-                            {item.variantTitle && <Text style={styles.variantTitle}>{item.variantTitle}</Text>}
+                            {item.variantTitle && item.variantTitle !== "Default Title" && (
+                                <Text style={styles.variantTitle}>{item.variantTitle}</Text>
+                            )}
                             <Text style={styles.itemPrice}>₹{item.price}</Text>
                             
                             <View style={styles.controls}>
