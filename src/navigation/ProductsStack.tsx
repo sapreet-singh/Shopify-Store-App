@@ -34,12 +34,12 @@ export default function ProductsStack() {
       <Stack.Screen 
         name="Login" 
         component={LoginScreen} 
-        options={{ headerTitle: () => <CustomHeader title="Login" /> }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Register" 
         component={RegisterScreen} 
-        options={{ headerTitle: () => <CustomHeader title="Register" /> }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
