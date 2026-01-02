@@ -7,6 +7,7 @@ import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
 import { useAuth } from "./src/context/AuthContext";
+import { useCart } from "./src/context/CartContext";
 
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
@@ -19,6 +20,7 @@ const Tab = createBottomTabNavigator();
 
 function AppTabs() {
   const { accessToken } = useAuth();
+  const { cartCount } = useCart();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -44,7 +46,10 @@ function AppTabs() {
       <Tab.Screen
         name="Cart"
         component={CartScreen}
-        options={{ headerShown: false }}
+        options={{ 
+          headerShown: false,
+          tabBarBadge: cartCount > 0 ? cartCount : undefined,
+        }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             if (!accessToken) {

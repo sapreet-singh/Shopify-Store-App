@@ -202,18 +202,7 @@ export default function CartScreen({ navigation }: any) {
             }}
         />
         
-        <View style={styles.checkoutFooter}>
-            <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>₹{subtotal.toFixed(2)}</Text>
-            </View>
-            {/* 
-            <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Shipping</Text>
-                <Text style={styles.summaryValue}>{shipping === 0 ? 'Calculated at checkout' : `₹${shipping}`}</Text>
-            </View>
-            */}
-            <View style={styles.divider} />
+        <View style={styles.checkoutFooter}>  
             <View style={[styles.summaryRow, { marginBottom: 20 }]}>
                 <Text style={styles.totalLabel}>Total</Text>
                 <Text style={styles.totalValue}>₹{total.toFixed(2)}</Text>
