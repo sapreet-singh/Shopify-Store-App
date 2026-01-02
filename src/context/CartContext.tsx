@@ -8,7 +8,7 @@ interface CartContextType {
   cart: CartItem[];
   cartCount: number;
   isLoading: boolean;
-  refreshCart: () => Promise<void>;
+  refreshCart: (specificId?: string) => Promise<void>;
   cartId: string | null;
   setCartId: (id: string | null) => Promise<void>;
   checkoutUrl: string | null;
