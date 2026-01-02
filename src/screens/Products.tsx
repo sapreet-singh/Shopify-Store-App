@@ -1,15 +1,44 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useLayoutEffect } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity } from "react-native";
 import { getProducts, Product } from "../api/products";
+import CustomHeader from "../components/CustomHeader";
 
 export default function ProductsScreen({ navigation }: any) {
   const [products, setProducts] = useState<Product[]>([]);
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
     getProducts().then((data) => {
         setProducts(data);
+        setFilteredProducts(data);
     }).catch(err => console.error(err));
   }, []);
+
+  useEffect(() => {
+    if (searchQuery) {
+        const lower = searchQuery.toLowerCase();
+        const filtered = products.filter(p => p.title.toLowerCase().includes(lower));
+        setFilteredProducts(filtered);
+    } else {
+        setFilteredProducts(products);
+    }
+  }, [searchQuery, products]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+        headerTitle: () => (
+            <CustomHeader 
+                title="Shopify Store" 
+                searchEnabled={true} 
+                onSearch={setSearchQuery} 
+            />
+        ),
+        headerStyle: {
+            height: 120, // Make sure there is enough space
+        }
+    });
+  }, [navigation]);
 
   const renderItem = ({ item }: { item: Product }) => {
     const imageUrl = item.featuredImage?.url;
@@ -54,7 +83,7 @@ export default function ProductsScreen({ navigation }: any) {
 
   return (
     <FlatList
-      data={products}
+      data={filteredProducts}
       keyExtractor={(item) => item.id}
       renderItem={renderItem}
       contentContainerStyle={{ padding: 20 }}

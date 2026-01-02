@@ -10,6 +10,7 @@ import { CartProvider } from "./src/context/CartContext";
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
 import ProfileScreen from "./src/screens/Profile";
+import CustomHeader from "./src/components/CustomHeader";
 
 enableScreens();
 
@@ -26,6 +27,8 @@ export default function App() {
 
               tabBarActiveTintColor: "#2563eb",
               tabBarInactiveTintColor: "#9ca3af",
+              
+              headerTitle: () => <CustomHeader title="Shopify Store" />,
 
               tabBarLabelStyle: {
                 fontSize: 12,
@@ -58,13 +61,13 @@ export default function App() {
             <Tab.Screen
               name="Cart"
               component={CartScreen}
-              options={{ headerShown: true }}
+              options={{ headerShown: false }}
             />
 
             <Tab.Screen
               name="Profile"
               component={ProfileScreen}
-              options={{ headerShown: true }}
+              options={{ headerShown: false }}
             />
           </Tab.Navigator>
         </NavigationContainer>
