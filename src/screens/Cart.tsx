@@ -16,8 +16,26 @@ export default function CartScreen({ navigation }: any) {
 
   useFocusEffect(
     useCallback(() => {
+      if (!accessToken) {
+        Alert.alert(
+          "Login Required",
+          "Cart dekhne ke liye pehle login karein.",
+          [
+            { 
+              text: "Login", 
+              onPress: () => navigation.navigate('Shop', { screen: 'Login' })
+            },
+            { 
+              text: "Cancel", 
+              style: "cancel",
+              onPress: () => navigation.navigate('Shop')
+            }
+          ]
+        );
+        return;
+      }
       refreshCart();
-    }, [refreshCart])
+    }, [refreshCart, accessToken])
   );
 
   const handleUpdateQuantity = async (lineId: string, currentQty: number, change: number) => {

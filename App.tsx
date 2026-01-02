@@ -6,6 +6,7 @@ import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
+import { useAuth } from "./src/context/AuthContext";
 
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
@@ -16,60 +17,58 @@ enableScreens();
 
 const Tab = createBottomTabNavigator();
 
+function AppTabs() {
+  const { accessToken } = useAuth();
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        headerShown: false,
+        tabBarActiveTintColor: "#2563eb",
+        tabBarInactiveTintColor: "#9ca3af",
+        headerTitle: () => <CustomHeader title="Shopify Store" />,
+        tabBarLabelStyle: { fontSize: 12 },
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName: string = "home";
+          if (route.name === "Shop") {
+            iconName = "store";
+          } else if (route.name === "Cart") {
+            iconName = "shopping-cart";
+          } else if (route.name === "Profile") {
+            iconName = focused ? "account-circle" : "person-outline";
+          }
+          return <MaterialIcons name={iconName} size={size} color={color} />;
+        },
+      })}
+    >
+      <Tab.Screen name="Shop" component={ProductsStack} />
+      <Tab.Screen
+        name="Cart"
+        component={CartScreen}
+        options={{ headerShown: false }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!accessToken) {
+              e.preventDefault();
+              navigation.navigate("Shop", { screen: "Login" });
+            }
+          },
+        })}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+    </Tab.Navigator>
+  );
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <CartProvider>
         <NavigationContainer>
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              headerShown: false,
-
-              tabBarActiveTintColor: "#2563eb",
-              tabBarInactiveTintColor: "#9ca3af",
-              
-              headerTitle: () => <CustomHeader title="Shopify Store" />,
-
-              tabBarLabelStyle: {
-                fontSize: 12,
-              },
-
-              tabBarIcon: ({ focused, color, size }) => {
-                let iconName: string = "home";
-                if (route.name === "Shop") {
-                  iconName = "store";
-                } else if (route.name === "Cart") {
-                  iconName = "shopping-cart";
-                } else if (route.name === "Profile") {
-                  iconName = focused
-                    ? "account-circle"
-                    : "person-outline";
-                }
-
-                return (
-                  <MaterialIcons
-                    name={iconName}
-                    size={size}
-                    color={color}
-                  />
-                );
-              },
-            })}
-          >
-            <Tab.Screen name="Shop" component={ProductsStack} />
-
-            <Tab.Screen
-              name="Cart"
-              component={CartScreen}
-              options={{ headerShown: false }}
-            />
-
-            <Tab.Screen
-              name="Profile"
-              component={ProfileScreen}
-              options={{ headerShown: false }}
-            />
-          </Tab.Navigator>
+          <AppTabs />
         </NavigationContainer>
       </CartProvider>
     </AuthProvider>

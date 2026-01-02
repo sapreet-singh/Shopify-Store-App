@@ -18,8 +18,7 @@ const { width } = Dimensions.get("window");
     const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
   
     const handleAddToCart = async () => {
-      // ... (existing cart logic remains unchanged)
-      if (!user) {
+      if (!accessToken) {
           Alert.alert(
               "Login Required",
               "You need to login to add items to cart.",
