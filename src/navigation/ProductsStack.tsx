@@ -16,7 +16,6 @@ export default function ProductsStack() {
         name="ProductsList" 
         component={ProductsScreen} 
         options={{ 
-          // We will control the header from the screen itself to handle state
           headerShown: true,
           headerTitle: () => <CustomHeader title="Shopify Store" searchEnabled={true} />,
         }}

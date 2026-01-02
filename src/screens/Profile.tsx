@@ -7,7 +7,6 @@ import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, de
 
 const { width } = Dimensions.get('window');
 
-// Static Data for "Best Design" feel
 const STATIC_ORDERS = [
     { id: '101', item: 'Nike Air Max', price: '$120.00', date: 'Jan 12, 2025', status: 'Delivered', color: '#10b981' },
     { id: '102', item: 'Leather Jacket', price: '$250.00', date: 'Dec 28, 2024', status: 'In Transit', color: '#f59e0b' },
@@ -80,7 +79,6 @@ export default function ProfileScreen() {
     setLoading(true);
     refreshAll(accessToken)
       .catch(() => {
-        // Silent error or retry logic could be added
       })
       .finally(() => setLoading(false));
   }, [accessToken, refreshAll]);

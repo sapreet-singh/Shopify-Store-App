@@ -49,7 +49,7 @@ const styles = StyleSheet.create({
   titleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // Center the title
+    justifyContent: 'center',
     marginBottom: 8,
     width: '100%',
   },
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 10,
     height: 40,
-    width: '100%', // Ensure it takes full width
+    width: '100%',
   },
   searchIcon: {
     marginRight: 8,
@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
     height: '100%',
     color: '#1f2937',
     fontSize: 14,
-    padding: 0, // Reset default padding
+    padding: 0,
   },
 });
 

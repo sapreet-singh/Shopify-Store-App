@@ -231,7 +231,7 @@ export default function CartScreen({ navigation }: any) {
 const styles = StyleSheet.create({
     container: { 
         flex: 1, 
-        backgroundColor: '#f9fafb', // Light gray background
+        backgroundColor: '#f9fafb', 
     },
     loadingContainer: {
         flex: 1,
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
     // List
     listContent: {
         padding: 16,
-        paddingBottom: 100, // Space for footer
+        paddingBottom: 100, 
     },
     // Cart Card
     cartCard: {
