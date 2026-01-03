@@ -1,8 +1,9 @@
 import React, { useState } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, Linking, FlatList, Dimensions } from "react-native";
+import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
 import { addToCart, buyProduct, createCart } from "../api/cart";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
+import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 const { width } = Dimensions.get("window");
   
@@ -11,15 +12,15 @@ const { width } = Dimensions.get("window");
     const [quantity, setQuantity] = useState(1);
     const [loading, setLoading] = useState(false);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
-    const { user, accessToken } = useAuth();
+    const [isFav, setIsFav] = useState(false);
+    const { accessToken } = useAuth();
     const { refreshCart, cartId, setCartId } = useCart();
   
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
   
     const handleAddToCart = async () => {
-      // ... (existing cart logic remains unchanged)
-      if (!user) {
+      if (!accessToken) {
           Alert.alert(
               "Login Required",
               "You need to login to add items to cart.",
@@ -113,17 +114,59 @@ const { width } = Dimensions.get("window");
                 showsHorizontalScrollIndicator={false}
                 style={{ height: 300 }}
               />
-              {images.length > 1 && (
-                 <View style={styles.paginationHint}>
-                     <Text style={styles.paginationText}>{images.length} images</Text>
-                 </View>
-              )}
+              {/* Top actions over image area */}
+              <View style={styles.imageTopBar}>
+                <View style={[styles.stockPill, { backgroundColor: isOutOfStock ? "#ef4444" : "#10b981" }]}>
+                  <Text style={styles.stockPillText}>{isOutOfStock ? "Out of stock" : "In stock"}</Text>
+                </View>
+                <View style={{ flexDirection: "row" }}>
+                  <TouchableOpacity style={styles.roundIcon} onPress={() => setIsFav(!isFav)}>
+                    <MaterialIcons name={isFav ? "favorite" : "favorite-outline"} size={20} color={isFav ? "#ef4444" : "#111827"} />
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.roundIcon} onPress={() => {}}>
+                    <MaterialIcons name="share" size={20} color="#111827" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            {images.length > 1 && (
+               <View style={styles.paginationHint}>
+                   <Text style={styles.paginationText}>{images.length} images</Text>
+               </View>
+            )}
           </View>
         )}
         
         <View style={styles.detailsContainer}>
           <Text style={styles.title}>{product.title}</Text>
+          <View style={styles.metaRow}>
+            {product.variantTitle ? (
+              <View style={styles.chip}>
+                <Text style={styles.chipText}>{product.variantTitle}</Text>
+              </View>
+            ) : null}
+            {typeof product.quantityAvailable === "number" ? (
+              <View style={styles.chip}>
+                <Text style={styles.chipText}>{product.quantityAvailable} left</Text>
+              </View>
+            ) : null}
+          </View>
           <Text style={styles.price}>₹{product.price}</Text>
+
+          {/* Benefits */}
+          <View style={styles.benefitsRow}>
+            <View style={styles.benefitItem}>
+              <MaterialIcons name="local-shipping" size={18} color="#2563eb" />
+              <Text style={styles.benefitText}>Free delivery</Text>
+            </View>
+            <View style={styles.benefitItem}>
+              <MaterialIcons name="event-available" size={18} color="#2563eb" />
+              <Text style={styles.benefitText}>7-day return</Text>
+            </View>
+            <View style={styles.benefitItem}>
+              <MaterialIcons name="verified-user" size={18} color="#2563eb" />
+              <Text style={styles.benefitText}>Secure checkout</Text>
+            </View>
+          </View>
 
           {/* Expandable Description */}
           {product.description ? (
@@ -131,7 +174,7 @@ const { width } = Dimensions.get("window");
                 <Text style={styles.sectionTitle}>Description</Text>
                 <Text 
                     style={styles.descriptionText}
-                    numberOfLines={isDescriptionExpanded ? undefined : 3}
+                    numberOfLines={isDescriptionExpanded ? undefined : 4}
                 >
                     {product.description}
                 </Text>
@@ -194,6 +237,31 @@ const { width } = Dimensions.get("window");
       height: 300,
       resizeMode: "contain",
     },
+    imageTopBar: {
+      position: "absolute",
+      top: 10,
+      left: 10,
+      right: 10,
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+    },
+    roundIcon: {
+      backgroundColor: "rgba(255,255,255,0.9)",
+      borderRadius: 16,
+      padding: 6,
+      marginLeft: 8,
+    },
+    stockPill: {
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+      borderRadius: 16,
+    },
+    stockPillText: {
+      color: "#fff",
+      fontSize: 12,
+      fontWeight: "600",
+    },
     paginationHint: {
        position: 'absolute',
        top: 10,
@@ -215,10 +283,43 @@ const { width } = Dimensions.get("window");
       fontWeight: "bold",
       marginBottom: 10,
     },
+    metaRow: {
+      flexDirection: "row",
+      gap: 8,
+      marginBottom: 8,
+      flexWrap: "wrap",
+    },
+    chip: {
+      backgroundColor: "#f3f4f6",
+      borderRadius: 16,
+      paddingHorizontal: 10,
+      paddingVertical: 6,
+    },
+    chipText: {
+      color: "#374151",
+      fontSize: 12,
+      fontWeight: "500",
+    },
     price: {
       fontSize: 20,
       color: "green",
       marginBottom: 20,
+    },
+    benefitsRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 16,
+    },
+    benefitItem: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 6,
+    },
+    benefitText: {
+      color: "#374151",
+      fontSize: 12,
+      fontWeight: "500",
     },
     descriptionContainer: {
         marginBottom: 25,
