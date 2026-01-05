@@ -16,7 +16,7 @@ import {
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { loginCustomer, getCustomerProfile, Customer } from '../api/customer';
 import { useAuth } from '../context/AuthContext';
-import { addToCart, createCart } from '../api/cart';
+import { addToCart, createCart, getUserCart } from '../api/cart';
 import { useCart } from '../context/CartContext';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
@@ -48,18 +48,30 @@ export default function LoginScreen() {
         try {
           const prof = await getCustomerProfile(accessToken);
           const data = prof?.data || {};
-          const customer = data.customer || data.data || data;
-          if (customer?.email) {
-            customerData = {
-              id: customer?.id || 'unknown',
-              displayName: customer?.displayName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || email.split('@')[0],
-              email: customer?.email,
-              firstName: customer?.firstName,
-              lastName: customer?.lastName
-            };
-          }
+          const customer = data.customer || (data?.data && data?.data.customer) || data;
+          customerData = {
+            id: customer?.id || customerData.id,
+            displayName: customer?.displayName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerData.displayName,
+            email: customer?.email || customerData.email,
+            firstName: customer?.firstName,
+            lastName: customer?.lastName
+          };
         } catch {}
         await login(customerData as any, accessToken);
+
+        // Fetch user's existing cart
+        if (customerData.id && customerData.id !== 'unknown') {
+          try {
+             const userCart = await getUserCart(customerData.id, accessToken);
+             if (userCart && userCart.cartID) {
+                console.log("Restoring user cart:", userCart.cartID);
+                await setCartId(userCart.cartID);
+                await refreshCart(userCart.cartID);
+             }
+          } catch (e) {
+             console.log("Failed to load user cart", e);
+          }
+        }
         
         if (pendingItem) {
            await handlePendingItem(accessToken);

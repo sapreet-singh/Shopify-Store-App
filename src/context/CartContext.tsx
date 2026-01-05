@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getCart, CartItem, CartFetchResult } from '../api/cart';
+import { getCart, CartItem, CartFetchResult, getUserCart } from '../api/cart';
 import { useAuth } from './AuthContext';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -29,7 +29,7 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [cartId, setCartIdState] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
 
   useEffect(() => {
       const loadCartId = async () => {
@@ -52,6 +52,23 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           setCart([]);
       }
   }, [cartId]);
+
+  useEffect(() => {
+      const restoreUserCart = async () => {
+          if (!accessToken || !user?.id) return;
+          try {
+              const uid = String(user.id).trim().replace(/^`+|`+$/g, "").replace(/^\"+|\"+$/g, "");
+              const data = await getUserCart(uid, accessToken || undefined);
+              const cid = data?.cartID;
+              const del = data?.isDelete;
+              if (cid && !del) {
+                  await updateCartId(cid);
+                  await refreshCart(cid);
+              }
+          } catch (e) {}
+      };
+      restoreUserCart();
+  }, [accessToken, user?.id]);
 
   const updateCartId = async (id: string | null) => {
       setCartIdState(id);

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, FlatList, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, SafeAreaView, Dimensions, Modal, Image, StatusBar } from "react-native";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from "../context/AuthContext";
+import { useCart } from "../context/CartContext";
 import { useNavigation } from "@react-navigation/native";
 import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
 
@@ -23,6 +24,7 @@ const MENU_ITEMS = [
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { user, accessToken, logout } = useAuth();
+  const { setCartId } = useCart();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -94,6 +96,7 @@ export default function ProfileScreen() {
                 style: "destructive",
                 onPress: async () => {
                     await logout();
+                    await setCartId(null);
                     navigation.navigate("Shop");
                 }
             }

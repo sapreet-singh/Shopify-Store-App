@@ -14,7 +14,7 @@ import {
   StatusBar
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { registerCustomer, loginCustomer } from '../api/customer';
+import { registerCustomer, loginCustomer, getCustomerProfile, Customer } from '../api/customer';
 import { useAuth } from '../context/AuthContext';
 import { addToCart, createCart } from '../api/cart';
 import { useCart } from '../context/CartContext';
@@ -50,13 +50,25 @@ export default function RegisterScreen() {
           const { accessToken } = loginRes.data;
 
           if (accessToken) {
-              const customerData = { 
+              let customerData: Customer = { 
                   email, 
                   displayName: firstName, 
                   firstName, 
                   lastName, 
                   id: 'unknown' 
               };
+              try {
+                  const prof = await getCustomerProfile(accessToken);
+                  const data = prof?.data || {};
+                  const customer = data.customer || (data?.data && data?.data.customer) || data;
+                  customerData = {
+                      id: customer?.id || customerData.id,
+                      displayName: customer?.displayName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerData.displayName,
+                      email: customer?.email || customerData.email,
+                      firstName: customer?.firstName,
+                      lastName: customer?.lastName
+                  };
+              } catch {}
               
               await login(customerData, accessToken);
               

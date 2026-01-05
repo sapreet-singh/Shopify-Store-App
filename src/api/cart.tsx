@@ -13,6 +13,12 @@ export interface CartItem {
 
 let currentCartId: string | null = null;
 
+const normalizeString = (value: any): string | null => {
+  if (typeof value !== "string") return value ?? null;
+  const trimmed = value.trim();
+  return trimmed.replace(/^`+|`+$/g, "").replace(/^"+|"+$/g, "");
+};
+
 export const createCart = async (
   variantId: string,
   quantity: number,
@@ -28,13 +34,16 @@ export const createCart = async (
   const normalizedId =
     data?.id ||
     data?.cartId ||
+    data?.cartsId ||
     data?.cart?.id ||
     data?.data?.id ||
     data?.createdCartId;
   if (normalizedId) {
-    currentCartId = normalizedId;
+    const cleanId = normalizeString(normalizedId) as string;
+    currentCartId = cleanId;
+    return { id: cleanId, ...data };
   }
-  return { id: normalizedId, ...data };
+  return { id: null, ...data };
 };
 
 export const addToCart = async (
@@ -90,6 +99,19 @@ export interface CartFetchResult {
   checkoutUrl?: string | null;
 }
 
+export const getUserCart = async (userId: string, accessToken?: string) => {
+  try {
+    const uid = typeof userId === "string" ? userId.trim().replace(/^`+|`+$/g, "").replace(/^\"+|\"+$/g, "") : userId;
+    const res = await API.get("/api/cart/userCart", {
+      params: { userId: uid, accessToken }
+    });
+    return res.data;
+  } catch (error) {
+    console.error("Failed to get user cart", error);
+    return null;
+  }
+};
+
 export const getCart = async (cartId: string, accessToken?: string): Promise<CartFetchResult> => {
   try {
       const res = await API.get(`/api/cart/${encodeURIComponent(cartId)}`, {
@@ -131,7 +153,8 @@ export const getCart = async (cartId: string, accessToken?: string): Promise<Car
         };
       });
       const checkoutUrl: string | null = cartNode?.checkoutUrl ?? res.data?.checkoutUrl ?? null;
-      return { items, checkoutUrl };
+      const cleanUrl = normalizeString(checkoutUrl);
+      return { items, checkoutUrl: cleanUrl };
   } catch (error: any) {
       if (axios.isAxiosError(error) && (error.response?.status === 404 || error.response?.status === 400)) {
         throw new Error("CART_NOT_FOUND");
