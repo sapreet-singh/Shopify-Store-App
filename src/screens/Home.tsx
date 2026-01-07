@@ -1,9 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
+import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Dimensions } from "react-native";
 import { getProductCollections, ProductCollection, searchProducts } from "../api/products";
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
+
+const { width } = Dimensions.get("window");
+const HERO_WIDTH = width - 24; // padding 12 * 2
+
+const heroImages = [
+  require("../assets/hero/Hero 1.png"),
+  require("../assets/hero/hero 2.png"),
+  require("../assets/hero/hero 3.png"),
+  require("../assets/hero/hero 4.png"),
+];
 
 export default function HomeScreen({ navigation }: any) {
   const NUM_COLUMNS = 2;
@@ -126,7 +136,7 @@ export default function HomeScreen({ navigation }: any) {
   return (
     <View style={{ flex: 1 }}>
       <CustomHeader
-        title={"Collections"}
+        title={"Home"}
         searchEnabled={true}
         onSearch={setSearchQuery}
         value={searchQuery}
@@ -143,8 +153,7 @@ export default function HomeScreen({ navigation }: any) {
         ListHeaderComponent={
           <View style={styles.homeHeader}>
             <View style={styles.hero}>
-              <Text style={styles.heroTitle}>STAY TRENDY</Text>
-              <Text style={styles.heroSubtitle}>OUR NEW iPhone CASES COLLECTION</Text>
+              
             </View>
             <FlatList
               data={categories}
@@ -303,14 +312,26 @@ const styles = StyleSheet.create({
     backgroundColor: "#f9fafb",
     borderWidth: 1,
     borderColor: "#e5e7eb",
-    alignItems: "center",
-    justifyContent: "center",
     marginBottom: 12,
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
+    position: "relative",
+  },
+  heroImage: {
+    width: HERO_WIDTH,
+    height: "100%",
+    resizeMode: "cover",
+  },
+  heroOverlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    padding: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.65)",
   },
   heroTitle: {
     fontSize: 22,
