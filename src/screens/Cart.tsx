@@ -1,18 +1,19 @@
 import React, { useCallback, useState } from "react";
-import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet, SafeAreaView, Dimensions } from "react-native";
+import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet } from "react-native";
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { updateCartLine, removeCartLine } from "../api/cart";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
-
-const { width } = Dimensions.get('window');
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CartScreen({ navigation }: any) {
   const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl } = useCart();
   const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const insets=useSafeAreaInsets();
+//   console.log(insets,"insets ");
 
   useFocusEffect(
     useCallback(() => {
@@ -35,7 +36,7 @@ export default function CartScreen({ navigation }: any) {
         return;
       }
       refreshCart();
-    }, [refreshCart, accessToken])
+    }, [refreshCart, accessToken, navigation])
   );
 
   const handleUpdateQuantity = async (lineId: string, currentQty: number, change: number) => {
@@ -49,6 +50,7 @@ export default function CartScreen({ navigation }: any) {
             await refreshCart();
         }
     } catch (error) {
+        console.error("Update quantity failed", error);
         Alert.alert("Error", "Failed to update quantity");
     } finally {
         setUpdatingItems(prev => ({ ...prev, [lineId]: false }));
@@ -72,6 +74,7 @@ export default function CartScreen({ navigation }: any) {
                             await refreshCart();
                         }
                     } catch (error) {
+                        console.error("Remove item failed", error);
                         Alert.alert("Error", "Failed to remove item");
                     } finally {
                         setLoading(false);
@@ -129,7 +132,7 @@ export default function CartScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container , {paddingTop: insets.top}]}>
         {renderHeader()}
         <FlatList
             data={cart}
@@ -224,7 +227,7 @@ export default function CartScreen({ navigation }: any) {
                 )}
             </TouchableOpacity>
         </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

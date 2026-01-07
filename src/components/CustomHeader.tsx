@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 interface CustomHeaderProps {
@@ -7,13 +7,19 @@ interface CustomHeaderProps {
   showLogo?: boolean;
   onSearch?: (query: string) => void;
   searchEnabled?: boolean;
+  value?: string;
+  onFocus?: () => void;
+  onSubmit?: (query: string) => void;
 }
 
 const CustomHeader: React.FC<CustomHeaderProps> = ({ 
   title, 
   showLogo = true, 
   onSearch, 
-  searchEnabled = false 
+  searchEnabled = false,
+  value,
+  onFocus,
+  onSubmit
 }) => {
   return (
     <View style={styles.container}>
@@ -28,9 +34,13 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
         <View style={styles.searchContainer}>
           <MaterialIcons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
           <TextInput
-            placeholder="Search products..."
+            placeholder="What are you looking for?"
             style={styles.searchInput}
             onChangeText={onSearch}
+            value={value}
+            onFocus={onFocus}
+            returnKeyType="search"
+            onSubmitEditing={(e) => onSubmit?.(e.nativeEvent.text)}
             placeholderTextColor="#9ca3af"
           />
         </View>
@@ -52,6 +62,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 8,
     width: '100%',
+    height: 64,
   },
   icon: {
     marginRight: 8,
@@ -64,11 +75,13 @@ const styles = StyleSheet.create({
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    height: 40,
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 43,
     width: '100%',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
   },
   searchIcon: {
     marginRight: 8,

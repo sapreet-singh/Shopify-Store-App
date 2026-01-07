@@ -13,6 +13,7 @@ import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
 import ProfileScreen from "./src/screens/Profile";
 import CustomHeader from "./src/components/CustomHeader";
+import { StatusBar } from "react-native";
 
 enableScreens();
 
@@ -73,6 +74,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <NavigationContainer>
+          <StatusBar backgroundColor="#111827" barStyle="dark-content" />
           <AppTabs />
         </NavigationContainer>
       </CartProvider>

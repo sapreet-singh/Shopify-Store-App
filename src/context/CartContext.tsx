@@ -31,45 +31,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const { accessToken, user } = useAuth();
 
-  useEffect(() => {
-      const loadCartId = async () => {
-          try {
-              const storedId = await AsyncStorage.getItem('cartId');
-              if (storedId) {
-                  setCartIdState(storedId);
-              }
-          } catch (e) {
-              console.error("Failed to load cartId", e);
-          }
-      };
-      loadCartId();
-  }, []);
-
-  useEffect(() => {
-      if (cartId) {
-          refreshCart(cartId);
-      } else {
-          setCart([]);
-      }
-  }, [cartId]);
-
-  useEffect(() => {
-      const restoreUserCart = async () => {
-          if (!accessToken || !user?.id) return;
-          try {
-              const uid = String(user.id).trim().replace(/^`+|`+$/g, "").replace(/^\"+|\"+$/g, "");
-              const data = await getUserCart(uid, accessToken || undefined);
-              const cid = data?.cartID;
-              const del = data?.isDelete;
-              if (cid && !del) {
-                  await updateCartId(cid);
-                  await refreshCart(cid);
-              }
-          } catch (e) {}
-      };
-      restoreUserCart();
-  }, [accessToken, user?.id]);
-
   const updateCartId = async (id: string | null) => {
       setCartIdState(id);
       try {
@@ -114,6 +75,45 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       setIsLoading(false);
     }
   }, [cartId, accessToken]);
+
+  useEffect(() => {
+      const loadCartId = async () => {
+          try {
+              const storedId = await AsyncStorage.getItem('cartId');
+              if (storedId) {
+                  setCartIdState(storedId);
+              }
+          } catch (e) {
+              console.error("Failed to load cartId", e);
+          }
+      };
+      loadCartId();
+  }, []);
+
+  useEffect(() => {
+      if (cartId) {
+          refreshCart(cartId);
+      } else {
+          setCart([]);
+      }
+  }, [cartId, refreshCart]);
+
+  useEffect(() => {
+      const restoreUserCart = async () => {
+          if (!accessToken || !user?.id) return;
+          try {
+              const uid = String(user.id).trim().replace(/[`"]/g, "");
+              const data = await getUserCart(uid, accessToken || undefined);
+              const cid = data?.cartID;
+              const del = data?.isDelete;
+              if (cid && !del) {
+                  await updateCartId(cid);
+                  await refreshCart(cid);
+              }
+          } catch (e) { console.error("Failed to restore user cart", e); }
+      };
+      restoreUserCart();
+  }, [accessToken, user?.id, refreshCart]);
 
   const cartCount = cart.reduce((total, item) => total + item.qty, 0);
 
