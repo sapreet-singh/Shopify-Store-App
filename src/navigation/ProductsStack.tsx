@@ -1,5 +1,6 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import HomeScreen from "../screens/Home";
 import ProductsScreen from "../screens/Products";
 import ProductDetailsScreen from "../screens/ProductDetails";
 import CheckoutWebview from "../screens/CheckoutWebview";
@@ -11,9 +12,16 @@ const Stack = createNativeStackNavigator();
 
 export default function ProductsStack() {
   return (
-    <Stack.Navigator>
+    <Stack.Navigator initialRouteName="Home">
       <Stack.Screen 
-        name="ProductsList" 
+        name="Home" 
+        component={HomeScreen} 
+        options={{ 
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen 
+        name="ProductList" 
         component={ProductsScreen} 
         options={{ 
           headerShown: false,

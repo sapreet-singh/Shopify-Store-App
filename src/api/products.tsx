@@ -136,7 +136,7 @@ export interface Product {
           query: String(s.query || s.title || query)
         } as PredictiveSuggestion;
       });
-    } catch (e) {
+    } catch {
       try {
         const res2 = await API.get("/api/products/predictive", { params: { query } });
         const data2 = Array.isArray(res2.data) ? res2.data : [];

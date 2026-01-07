@@ -1,87 +1,42 @@
 import React, { useEffect, useState } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
-import { Product, getProductCollections, ProductCollection, searchProducts } from "../api/products";
-import CustomHeader from "../components/CustomHeader";
+import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { Product, ProductCollection } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
-import SearchOverlay from "../components/SearchOverlay";
 import { scale } from "react-native-size-matters";
 
-export default function ProductsScreen({ navigation }: any) {
+export default function ProductsScreen({ navigation, route }: any) {
   const NUM_COLUMNS = 2;
-  const [categories, setCategories] = useState<ProductCollection[]>([]);
-  const [filteredCategories, setFilteredCategories] = useState<ProductCollection[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
   const { accessToken } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
 
+  const catParam = route?.params?.category;
   useEffect(() => {
-    setLoading(true);
-    getProductCollections()
-      .then((data) => {
-        setCategories(data);
-        setFilteredCategories(data);
-      })
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false));
-  }, []);
+    if (!catParam) {
+      navigation.replace("Home");
+    }
+  }, [catParam, navigation]);
 
   useEffect(() => {
-    if (!selectedCategory) {
-      if (searchQuery) {
-        const lower = searchQuery.toLowerCase();
-        const filtered = categories.filter(c => 
-          c.categoryTitle?.toLowerCase().includes(lower) || 
-          c.categoryHandle?.toLowerCase().includes(lower)
-        );
-        setFilteredCategories(filtered);
-      } else {
-        setFilteredCategories(categories);
-      }
-    } else {
-      if (searchQuery) {
-        const lower = searchQuery.toLowerCase();
-        const filtered = products.filter(p => p.title.toLowerCase().includes(lower));
-        setFilteredProducts(filtered);
-      } else {
-        setFilteredProducts(products);
-      }
-    }
-  }, [searchQuery, categories, selectedCategory, products]);
+    const params = route?.params || {};
+    const cat = params.category as ProductCollection | undefined;
+    const prods = (params.products as Product[] | undefined) || cat?.products || [];
+    setSelectedCategory(cat || null);
+    setProducts(prods || []);
+    setFilteredProducts(prods || []);
+  }, [route]);
 
-  const handleSubmitSearch = async (q: string) => {
-    const query = q?.trim() || "";
-    if (!query) return;
-    setShowSearchOverlay(false);
-    setLoading(true);
-    try {
-      const results = await searchProducts(query);
-      const cat = {
-        categoryId: "search",
-        categoryTitle: `Results: ${query}`,
-        categoryHandle: "search",
-        categoryImage: undefined,
-        products: results,
-      } as ProductCollection;
-      setSelectedCategory(cat);
-      setProducts(results);
-      setFilteredProducts(results);
-    } catch {
-      Alert.alert("Error", "Search failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    setFilteredProducts(products);
+  }, [products]);
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -191,171 +146,12 @@ export default function ProductsScreen({ navigation }: any) {
     );
   };
   
-  const renderCategory = ({ item }: { item: ProductCollection }) => {
-    const imageUrl = item.categoryImage?.url;
-    return (
-      <TouchableOpacity
-      style={{width:"48%"}}
-        onPress={() => {
-          setSelectedCategory(item);
-          const prods = item.products || [];
-          setProducts(prods);
-          setFilteredProducts(prods);
-          setSearchQuery("");
-        }}
-        activeOpacity={0.8}
-      >
-        <View style={styles.card}>
-          <View style={styles.imageWrapper}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.image} />
-            ) : (
-              <View style={styles.placeholder}>
-                <MaterialIcons name="image" size={24} color="#9ca3af" />
-              </View>
-            )}
-          </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.categoryTitle || item.categoryHandle}
-          </Text>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const renderCategoryChip = ({ item }: { item: ProductCollection }) => {
-    const imageUrl = item.categoryImage?.url;
-    return (
-      <TouchableOpacity
-        style={styles.catChip}
-        onPress={() => {
-          setSelectedCategory(item);
-          const prods = item.products || [];
-          setProducts(prods);
-          setFilteredProducts(prods);
-          setSearchQuery("");
-        }}
-      >
-        <View style={styles.catChipImageWrap}>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.catChipImage} />
-          ) : (
-            <View style={styles.catChipPlaceholder}>
-              <MaterialIcons name="image" size={18} color="#9ca3af" />
-            </View>
-          )}
-        </View>
-        <Text style={styles.catChipLabel} numberOfLines={1}>
-          {item.categoryTitle || item.categoryHandle}
-        </Text>
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>{selectedCategory ? "Loading products..." : "Loading collections..."}</Text>
-      </View>
-    );
-  }
+  
 
   if (!selectedCategory) {
     return (
-      <View style={{ flex: 1 }}>
-        <CustomHeader
-          title={"Collections"}
-          searchEnabled={true}
-          onSearch={setSearchQuery}
-          value={searchQuery}
-          onFocus={() => setShowSearchOverlay(true)}
-          onSubmit={handleSubmitSearch}
-        />
-        <FlatList
-          data={filteredCategories}
-          keyExtractor={(item) => item.categoryId}
-          renderItem={renderCategory}
-          numColumns={NUM_COLUMNS}
-          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={
-            <View style={styles.homeHeader}>
-              <View style={styles.hero}>
-                <Text style={styles.heroTitle}>STAY TRENDY</Text>
-                <Text style={styles.heroSubtitle}>OUR NEW iPhone CASES COLLECTION</Text>
-              </View>
-              <FlatList
-                data={categories}
-                keyExtractor={(item) => item.categoryId + "_chip"}
-                renderItem={renderCategoryChip}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.catChipsRow}
-              />
-            </View>
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialIcons name="search-off" size={48} color="#9ca3af" />
-              <Text style={styles.emptyTitle}>No collections found</Text>
-              <Text style={styles.emptySubtitle}>Try a different search.</Text>
-            </View>
-          }
-        />
-        <SearchOverlay
-          visible={showSearchOverlay}
-          query={searchQuery}
-          onClose={() => setShowSearchOverlay(false)}
-          onPickSuggestion={async (s) => {
-            const q = s.type === "product" ? s.title : (s.query || "");
-            if (!q) return;
-            setShowSearchOverlay(false);
-            setLoading(true);
-            try {
-              const results = s.type === "product" && s.product
-                ? [s.product]
-                : await searchProducts(q);
-              const cat = {
-                categoryId: "search",
-                categoryTitle: `Results: ${q}`,
-                categoryHandle: "search",
-                categoryImage: undefined,
-                products: results,
-              } as ProductCollection;
-              setSelectedCategory(cat);
-              setProducts(results);
-              setFilteredProducts(results);
-            } catch {
-              Alert.alert("Error", "Search failed. Please try again.");
-            } finally {
-              setLoading(false);
-            }
-          }}
-          onSubmitQuery={async (q) => {
-            const query = q?.trim() || searchQuery.trim();
-            if (!query) return;
-            setShowSearchOverlay(false);
-            setLoading(true);
-            try {
-              const results = await searchProducts(query);
-              const cat = {
-                categoryId: "search",
-                categoryTitle: `Results: ${query}`,
-                categoryHandle: "search",
-                categoryImage: undefined,
-                products: results,
-              } as ProductCollection;
-              setSelectedCategory(cat);
-              setProducts(results);
-              setFilteredProducts(results);
-            } catch {
-              Alert.alert("Error", "Search failed. Please try again.");
-            } finally {
-              setLoading(false);
-            }
-          }}
-        />
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading products...</Text>
       </View>
     );
   }
@@ -363,7 +159,7 @@ export default function ProductsScreen({ navigation }: any) {
   return (
     <View style={{ flex: 1, paddingTop: scale(12) }}>
       <View style={styles.categoryHeader}>
-        <TouchableOpacity onPress={() => { setSelectedCategory(null); setSearchQuery(""); }} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.navigate("Home")} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={20} color="#111827" />
           <Text style={styles.backText}>Collections</Text>
         </TouchableOpacity>
@@ -400,10 +196,6 @@ export default function ProductsScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  listContent: {
-    
-    padding: 12,
-  },
   column: {
     justifyContent: "space-between",
     marginBottom: 16,

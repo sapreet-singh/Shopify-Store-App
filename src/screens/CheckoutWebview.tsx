@@ -23,7 +23,7 @@ export default function CheckoutWebview({ route, navigation }: any) {
                             CommonActions.reset({
                                 index: 0,
                                 routes: [
-                                    { name: 'ProductsList' },
+                                    { name: 'Home' },
                                 ],
                             })
                         );

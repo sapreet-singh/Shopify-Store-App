@@ -76,7 +76,7 @@ export default function RegisterScreen() {
               } else {
                   navigation.reset({
                       index: 0,
-                      routes: [{ name: 'ProductsList' }],
+                      routes: [{ name: 'Home' }],
                   });
               }
           } else {
@@ -117,7 +117,7 @@ export default function RegisterScreen() {
     } catch (e) {
         console.error("Failed to add pending item", e);
         Alert.alert("Warning", "Registered, but failed to add item to cart.");
-        navigation.navigate('ProductsList');
+        navigation.navigate('Home');
     }
 };
 

@@ -1,13 +1,11 @@
 import React, { useCallback, useState } from "react";
-import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet, SafeAreaView, Dimensions } from "react-native";
+import { View, FlatList, Text, TouchableOpacity, Alert, Image, ActivityIndicator, StyleSheet } from "react-native";
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { updateCartLine, removeCartLine } from "../api/cart";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-
-const { width } = Dimensions.get('window');
 
 export default function CartScreen({ navigation }: any) {
   const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl } = useCart();
@@ -38,7 +36,7 @@ export default function CartScreen({ navigation }: any) {
         return;
       }
       refreshCart();
-    }, [refreshCart, accessToken])
+    }, [refreshCart, accessToken, navigation])
   );
 
   const handleUpdateQuantity = async (lineId: string, currentQty: number, change: number) => {
@@ -52,6 +50,7 @@ export default function CartScreen({ navigation }: any) {
             await refreshCart();
         }
     } catch (error) {
+        console.error("Update quantity failed", error);
         Alert.alert("Error", "Failed to update quantity");
     } finally {
         setUpdatingItems(prev => ({ ...prev, [lineId]: false }));
@@ -75,6 +74,7 @@ export default function CartScreen({ navigation }: any) {
                             await refreshCart();
                         }
                     } catch (error) {
+                        console.error("Remove item failed", error);
                         Alert.alert("Error", "Failed to remove item");
                     } finally {
                         setLoading(false);

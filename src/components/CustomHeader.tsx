@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, TextInput } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 interface CustomHeaderProps {
