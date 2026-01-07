@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useLayoutEffect } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
-import { getProducts, Product } from "../api/products";
+import { getProducts, Product, getProductCollections, ProductCollection } from "../api/products";
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useAuth } from "../context/AuthContext";
@@ -9,6 +9,9 @@ import { addToCart, createCart } from "../api/cart";
 
 export default function ProductsScreen({ navigation }: any) {
   const NUM_COLUMNS = 1;
+  const [categories, setCategories] = useState<ProductCollection[]>([]);
+  const [filteredCategories, setFilteredCategories] = useState<ProductCollection[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,30 +24,43 @@ export default function ProductsScreen({ navigation }: any) {
 
   useEffect(() => {
     setLoading(true);
-    getProducts()
+    getProductCollections()
       .then((data) => {
-        setProducts(data);
-        setFilteredProducts(data);
+        setCategories(data);
+        setFilteredCategories(data);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
   useEffect(() => {
-    if (searchQuery) {
+    if (!selectedCategory) {
+      if (searchQuery) {
+        const lower = searchQuery.toLowerCase();
+        const filtered = categories.filter(c => 
+          c.categoryTitle?.toLowerCase().includes(lower) || 
+          c.categoryHandle?.toLowerCase().includes(lower)
+        );
+        setFilteredCategories(filtered);
+      } else {
+        setFilteredCategories(categories);
+      }
+    } else {
+      if (searchQuery) {
         const lower = searchQuery.toLowerCase();
         const filtered = products.filter(p => p.title.toLowerCase().includes(lower));
         setFilteredProducts(filtered);
-    } else {
+      } else {
         setFilteredProducts(products);
+      }
     }
-  }, [searchQuery, products]);
+  }, [searchQuery, categories, selectedCategory, products]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
         headerTitle: () => (
             <CustomHeader 
-                title="Shopify Store" 
+                title={selectedCategory ? selectedCategory.categoryTitle : "Collections"} 
                 searchEnabled={true} 
                 onSearch={setSearchQuery} 
             />
@@ -53,7 +69,7 @@ export default function ProductsScreen({ navigation }: any) {
             height: 120,
         }
     });
-  }, [navigation]);
+  }, [navigation, selectedCategory]);
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -161,32 +177,92 @@ export default function ProductsScreen({ navigation }: any) {
       </TouchableOpacity>
     );
   };
+  
+  const renderCategory = ({ item }: { item: ProductCollection }) => {
+    const imageUrl = item.categoryImage?.url;
+    return (
+      <TouchableOpacity
+        onPress={() => {
+          setSelectedCategory(item);
+          const prods = item.products || [];
+          setProducts(prods);
+          setFilteredProducts(prods);
+          setSearchQuery("");
+        }}
+        activeOpacity={0.8}
+      >
+        <View style={styles.card}>
+          <View style={styles.imageWrapper}>
+            {imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.image} />
+            ) : (
+              <View style={styles.placeholder}>
+                <MaterialIcons name="image" size={24} color="#9ca3af" />
+              </View>
+            )}
+          </View>
+          <Text style={styles.title} numberOfLines={2}>
+            {item.categoryTitle || item.categoryHandle}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Loading products...</Text>
+        <Text style={styles.loadingText}>{selectedCategory ? "Loading products..." : "Loading collections..."}</Text>
       </View>
     );
   }
 
+  if (!selectedCategory) {
+    return (
+      <FlatList
+        data={filteredCategories}
+        keyExtractor={(item) => item.categoryId}
+        renderItem={renderCategory}
+        numColumns={NUM_COLUMNS}
+        columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="search-off" size={48} color="#9ca3af" />
+            <Text style={styles.emptyTitle}>No collections found</Text>
+            <Text style={styles.emptySubtitle}>Try a different search.</Text>
+          </View>
+        }
+      />
+    );
+  }
+
   return (
-    <FlatList
-      data={filteredProducts}
-      keyExtractor={(item) => item.id}
-      renderItem={renderItem}
-      numColumns={NUM_COLUMNS}
-      columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-      contentContainerStyle={styles.listContent}
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="search-off" size={48} color="#9ca3af" />
-          <Text style={styles.emptyTitle}>No products found</Text>
-          <Text style={styles.emptySubtitle}>Try a different search.</Text>
-        </View>
-      }
-    />
+    <View style={{ flex: 1 }}>
+      <View style={styles.categoryHeader}>
+        <TouchableOpacity onPress={() => { setSelectedCategory(null); setSearchQuery(""); }} style={styles.backBtn}>
+          <MaterialIcons name="arrow-back" size={20} color="#111827" />
+          <Text style={styles.backText}>Collections</Text>
+        </TouchableOpacity>
+        <Text style={styles.categoryTitle}>{selectedCategory.categoryTitle}</Text>
+      </View>
+      <FlatList
+        data={filteredProducts}
+        keyExtractor={(item) => item.id}
+        renderItem={renderItem}
+        numColumns={NUM_COLUMNS}
+        columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+        contentContainerStyle={styles.listContent}
+        ListEmptyComponent={
+          <View style={styles.emptyContainer}>
+            <MaterialIcons name="search-off" size={48} color="#9ca3af" />
+            <Text style={styles.emptyTitle}>No products found</Text>
+            <Text style={styles.emptySubtitle}>Try a different search.</Text>
+          </View>
+        }
+      />
+    </View>
   );
 }
 
@@ -311,5 +387,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     color: "#6b7280",
+  },
+  categoryHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingTop: 8,
+  },
+  backBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  backText: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "600",
+  },
+  categoryTitle: {
+    fontSize: 16,
+    color: "#374151",
+    fontWeight: "600",
   },
 });

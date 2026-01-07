@@ -18,6 +18,72 @@ export interface Product {
     }[];
   }
   
+  export interface ProductCollection {
+    categoryId: string;
+    categoryTitle: string;
+    categoryHandle: string;
+    categoryImage?: {
+      url: string;
+    };
+    products: Product[];
+  }
+  
+  const normalizeUrl = (u?: string) => {
+    if (!u) return undefined;
+    return u.replace(/[`"' ]/g, "");
+  };
+  
+  const mapIncomingProduct = (p: any): Product => {
+    const featured = typeof p.featuredImage === "string" ? { url: normalizeUrl(p.featuredImage)! } : p.featuredImage;
+    const imgs = Array.isArray(p.images)
+      ? p.images.map((url: any) => {
+          if (typeof url === "string") return { url: normalizeUrl(url)! };
+          if (url && typeof url.url === "string") return { url: normalizeUrl(url.url)! };
+          return { url: "" };
+        }).filter((i: any) => i.url)
+      : [];
+    return {
+      id: p.id,
+      variantId: p.variantId,
+      variantTitle: p.variantTitle,
+      title: p.title,
+      handle: p.handle,
+      price: String(p.price),
+      availableForSale: Boolean(p.availableForSale),
+      quantityAvailable: Number(p.quantityAvailable ?? 0),
+      description: p.description,
+      featuredImage: featured,
+      images: imgs
+    };
+  };
+  
+  export const getProductCollections = async (): Promise<ProductCollection[]> => {
+    const res = await API.get("/api/products/categories");
+    const data = Array.isArray(res.data) ? res.data : [];
+    return data.map((c: any) => {
+      const catImage =
+        typeof c.categoryImage === "string"
+          ? { url: normalizeUrl(c.categoryImage)! }
+          : c.categoryImage && c.categoryImage.url
+          ? { url: normalizeUrl(c.categoryImage.url)! }
+          : undefined;
+      const items = Array.isArray(c.products) ? c.products.map(mapIncomingProduct) : [];
+      return {
+        categoryId: c.categoryId,
+        categoryTitle: c.categoryTitle,
+        categoryHandle: c.categoryHandle,
+        categoryImage: catImage,
+        products: items
+      };
+    });
+  };
+  
+  export const searchProducts = async (query: string): Promise<Product[]> => {
+    const res = await API.get("/api/products/search", { params: { query } });
+    const data = Array.isArray(res.data) ? res.data : [];
+    return data.map(mapIncomingProduct);
+  };
+  
   
   export const getProducts = async (): Promise<Product[]> => {
     const res = await API.get("/api/storefront/products/all");
