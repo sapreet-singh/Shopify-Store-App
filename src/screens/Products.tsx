@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useLayoutEffect } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet } from "react-native";
+import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { getProducts, Product } from "../api/products";
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
@@ -13,7 +13,9 @@ export default function ProductsScreen({ navigation }: any) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
   const { accessToken } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
 
@@ -58,6 +60,8 @@ export default function ProductsScreen({ navigation }: any) {
   };
 
   const handleQuickAddToCart = async (item: Product) => {
+    if (addingToCartId) return;
+    setAddingToCartId(item.id);
     const token = accessToken || undefined;
     try {
       if (!cartId) {
@@ -65,14 +69,39 @@ export default function ProductsScreen({ navigation }: any) {
         if (res && res.id) {
           await setCartId(res.id);
           await refreshCart(res.id);
+          showSuccessAlert();
+        } else {
+            throw new Error("Failed to create cart");
         }
       } else {
         await addToCart(cartId, item.variantId, 1, token);
         await refreshCart(cartId);
+        showSuccessAlert();
       }
+      setAddedToCart((prev) => ({ ...prev, [item.id]: true }));
     } catch (e) {
       console.error("Quick add to cart failed", e);
+      Alert.alert("Error", "Failed to add item to cart. Please try again.");
+    } finally {
+      setAddingToCartId(null);
     }
+  };
+
+  const showSuccessAlert = () => {
+    Alert.alert(
+      "Success",
+      "Item added to cart",
+      [
+        {
+          text: "Continue Shopping",
+          style: "cancel"
+        },
+        {
+          text: "Go to Cart",
+          onPress: () => navigation.navigate("Cart")
+        }
+      ]
+    );
   };
 
   const renderItem = ({ item }: { item: Product }) => {
@@ -94,7 +123,10 @@ export default function ProductsScreen({ navigation }: any) {
             </View>
           )}
             <View style={styles.topActions}>
-              <TouchableOpacity onPress={() => toggleFavorite(item.id)} style={styles.iconBtn}>
+              <TouchableOpacity
+                onPress={() => toggleFavorite(item.id)}
+                style={[styles.iconBtn, favorites[item.id] ? styles.iconBtnHighlight : null]}
+              >
                 <MaterialIcons
                   name={favorites[item.id] ? "favorite" : "favorite-outline"}
                   size={18}
@@ -102,8 +134,11 @@ export default function ProductsScreen({ navigation }: any) {
                 />
               </TouchableOpacity>
               {!isOut && (
-                <TouchableOpacity onPress={() => handleQuickAddToCart(item)} style={styles.iconBtn}>
-                  <MaterialIcons name="add-shopping-cart" size={18} color="#111827" />
+                <TouchableOpacity
+                  onPress={() => handleQuickAddToCart(item)}
+                  style={[styles.iconBtn, (addingToCartId === item.id || addedToCart[item.id]) ? styles.iconBtnHighlight : null]}
+                >
+                  <MaterialIcons name="add-shopping-cart" size={18} color={(addingToCartId === item.id || addedToCart[item.id]) ? "#25ebbaff" : "#111827"} />
                 </TouchableOpacity>
               )}
             </View>
@@ -187,6 +222,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#e5e7eb",
   },
+  iconBtnHighlight: {
+    backgroundColor: "#dbeafe",
+    borderColor: "#2563eb",
+  },
   image: {
     width: "100%",
     height: "100%",
@@ -210,6 +249,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 6,
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: "transparent",
   },
   badge: {
     position: "absolute",
