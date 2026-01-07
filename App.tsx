@@ -1,5 +1,6 @@
 import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
+import 'react-native-gesture-handler';
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { enableScreens } from "react-native-screens";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
@@ -11,7 +12,7 @@ import { useCart } from "./src/context/CartContext";
 
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
-import ProfileScreen from "./src/screens/Profile";
+import ProfileStack from "./src/navigation/ProfileStack";
 import CustomHeader from "./src/components/CustomHeader";
 import { StatusBar } from "react-native";
 
@@ -62,7 +63,7 @@ function AppTabs() {
       />
       <Tab.Screen
         name="Profile"
-        component={ProfileScreen}
+        component={ProfileStack}
         options={{ headerShown: false }}
       />
     </Tab.Navigator>

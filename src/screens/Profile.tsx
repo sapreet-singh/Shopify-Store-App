@@ -15,6 +15,7 @@ const STATIC_ORDERS = [
 ];
 
 const MENU_ITEMS = [
+    { id: 'orders', icon: 'shopping-bag', label: 'My Orders', subtitle: '' },
     { id: 'payment', icon: 'credit-card', label: 'Payment Methods', subtitle: 'Visa **42' },
     { id: 'notif', icon: 'notifications', label: 'Notifications', subtitle: 'On' },
     { id: 'lang', icon: 'language', label: 'Language', subtitle: 'English' },
@@ -327,7 +328,15 @@ export default function ProfileScreen() {
                     {/* Menu Options */}
                     <View style={styles.menuList}>
                         {MENU_ITEMS.map((item) => (
-                            <TouchableOpacity key={item.id} style={styles.menuRow}>
+                            <TouchableOpacity 
+                                key={item.id} 
+                                style={styles.menuRow}
+                                onPress={() => {
+                                    if (item.id === 'orders') {
+                                        navigation.navigate('OrderHistory');
+                                    }
+                                }}
+                            >
                                 <View style={[styles.menuIconContainer, { backgroundColor: '#f3f4f6' }]}>
                                     <MaterialIcons name={item.icon} size={20} color="#4b5563" />
                                 </View>
