@@ -1,22 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import {
-  View,
-  FlatList,
-  Text,
-  Image,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-  Dimensions,
-  ScrollView,
-} from "react-native";
+import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
-import {
-  getProductCollections,
-  ProductCollection,
-  searchProducts,
-} from "../api/products";
+import { getProductCollections, ProductCollection, searchProducts, } from "../api/products";
 
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
@@ -169,12 +154,11 @@ export default function HomeScreen({ navigation }: any) {
     );
   }
 
-  // ========================================================================================
-  // ⭐ MAIN RETURN — HEADER FIXED + EVERYTHING SCROLLS INSIDE ScrollView
-  // ========================================================================================
+  
+  const NUM_COLUMNS = 2;
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: '#fff' }}>
       {/* Fixed Header */}
       <CustomHeader
         title="Home"
@@ -270,10 +254,12 @@ export default function HomeScreen({ navigation }: any) {
         <View style={{ paddingHorizontal: 12 }}>
           <FlatList
             data={filteredCategories}
-            numColumns={2}
+            numColumns={NUM_COLUMNS}
+            key={`grid-${NUM_COLUMNS}`} // Force re-render when columns change
             renderItem={renderCategory}
             keyExtractor={(item) => item.categoryId}
-            scrollEnabled={false} // IMPORTANT — disables internal scroll
+            scrollEnabled={false}
+            columnWrapperStyle={NUM_COLUMNS > 1 ? styles.columnWrapper : undefined}
           />
         </View>
 
@@ -284,8 +270,13 @@ export default function HomeScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
-  listContent: { padding: 12 },
-  column: { justifyContent: "space-between", marginBottom: 16 },
+  listContent: { 
+    padding: 12,
+  },
+  columnWrapper: { 
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
 
   card: {
     backgroundColor: "#fff",
