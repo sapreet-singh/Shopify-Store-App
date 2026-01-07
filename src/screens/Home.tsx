@@ -1,12 +1,29 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Dimensions } from "react-native";
-import { getProductCollections, ProductCollection, searchProducts } from "../api/products";
+import {
+  View,
+  FlatList,
+  Text,
+  Image,
+  TouchableOpacity,
+  ActivityIndicator,
+  StyleSheet,
+  Alert,
+  Dimensions,
+  ScrollView,
+} from "react-native";
+
+import {
+  getProductCollections,
+  ProductCollection,
+  searchProducts,
+} from "../api/products";
+
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
 
 const { width } = Dimensions.get("window");
-const HERO_WIDTH = width - 24; // padding 12 * 2
+const HERO_WIDTH = width - 24;
 
 const heroImages = [
   require("../assets/hero/Hero 1.png"),
@@ -16,27 +33,27 @@ const heroImages = [
 ];
 
 export default function HomeScreen({ navigation }: any) {
-  const NUM_COLUMNS = 2;
   const [categories, setCategories] = useState<ProductCollection[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<ProductCollection[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
 
   // Auto-scroll hero images
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => 
-        prevIndex === heroImages.length - 1 ? 0 : prevIndex + 1
-      );
+      const nextIndex = currentIndex === heroImages.length - 1 ? 0 : currentIndex + 1;
+      setCurrentIndex(nextIndex);
+
       flatListRef.current?.scrollToIndex({
-        index: currentIndex,
+        index: nextIndex,
         animated: true,
       });
     }, 3000);
-    
+
     return () => clearInterval(interval);
   }, [currentIndex]);
 
@@ -54,9 +71,10 @@ export default function HomeScreen({ navigation }: any) {
   useEffect(() => {
     if (searchQuery) {
       const lower = searchQuery.toLowerCase();
-      const filtered = categories.filter(c =>
-        c.categoryTitle?.toLowerCase().includes(lower) ||
-        c.categoryHandle?.toLowerCase().includes(lower)
+      const filtered = categories.filter(
+        (c) =>
+          c.categoryTitle?.toLowerCase().includes(lower) ||
+          c.categoryHandle?.toLowerCase().includes(lower)
       );
       setFilteredCategories(filtered);
     } else {
@@ -65,19 +83,21 @@ export default function HomeScreen({ navigation }: any) {
   }, [searchQuery, categories]);
 
   const handleSubmitSearch = async (q: string) => {
-    const query = q?.trim() || "";
+    const query = q.trim();
     if (!query) return;
+
     setShowSearchOverlay(false);
     setLoading(true);
+
     try {
       const results = await searchProducts(query);
-      const cat = {
+      const cat: ProductCollection = {
         categoryId: "search",
         categoryTitle: `Results: ${query}`,
         categoryHandle: "search",
         categoryImage: undefined,
         products: results,
-      } as ProductCollection;
+      };
       navigation.navigate("ProductList", { category: cat, products: results });
     } catch {
       Alert.alert("Error", "Search failed. Please try again.");
@@ -87,20 +107,20 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const renderCategory = ({ item }: { item: ProductCollection }) => {
-    const imageUrl = item.categoryImage?.url;
+    const img = item.categoryImage?.url;
+
     return (
       <TouchableOpacity
-        style={{ width: "48%" }}
-        onPress={() => {
-          const prods = item.products || [];
-          navigation.navigate("ProductList", { category: item, products: prods });
-        }}
+        style={{ width: "48%", marginBottom: 16 }}
         activeOpacity={0.8}
+        onPress={() =>
+          navigation.navigate("ProductList", { category: item, products: item.products || [] })
+        }
       >
         <View style={styles.card}>
           <View style={styles.imageWrapper}>
-            {imageUrl ? (
-              <Image source={{ uri: imageUrl }} style={styles.image} />
+            {img ? (
+              <Image source={{ uri: img }} style={styles.image} />
             ) : (
               <View style={styles.placeholder}>
                 <MaterialIcons name="image" size={24} color="#9ca3af" />
@@ -116,18 +136,17 @@ export default function HomeScreen({ navigation }: any) {
   };
 
   const renderCategoryChip = ({ item }: { item: ProductCollection }) => {
-    const imageUrl = item.categoryImage?.url;
+    const img = item.categoryImage?.url;
     return (
       <TouchableOpacity
         style={styles.catChip}
-        onPress={() => {
-          const prods = item.products || [];
-          navigation.navigate("ProductList", { category: item, products: prods });
-        }}
+        onPress={() =>
+          navigation.navigate("ProductList", { category: item, products: item.products || [] })
+        }
       >
         <View style={styles.catChipImageWrap}>
-          {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.catChipImage} />
+          {img ? (
+            <Image source={{ uri: img }} style={styles.catChipImage} />
           ) : (
             <View style={styles.catChipPlaceholder}>
               <MaterialIcons name="image" size={18} color="#9ca3af" />
@@ -150,303 +169,211 @@ export default function HomeScreen({ navigation }: any) {
     );
   }
 
+  // ========================================================================================
+  // ⭐ MAIN RETURN — HEADER FIXED + EVERYTHING SCROLLS INSIDE ScrollView
+  // ========================================================================================
+
   return (
     <View style={{ flex: 1 }}>
+      {/* Fixed Header */}
       <CustomHeader
-        title={"Home"}
-        searchEnabled={true}
-        onSearch={setSearchQuery}
+        title="Home"
         value={searchQuery}
+        searchEnabled
+        onSearch={setSearchQuery}
         onFocus={() => setShowSearchOverlay(true)}
         onSubmit={handleSubmitSearch}
       />
+
+      {/* Search Overlay */}
       <SearchOverlay
         visible={showSearchOverlay}
         query={searchQuery}
         onClose={() => setShowSearchOverlay(false)}
         onPickSuggestion={async (s) => {
-          const q = s.type === "product" ? s.title : (s.query || "");
+          const q = s.type === "product" ? s.title : s.query || "";
           if (!q) return;
+
           setShowSearchOverlay(false);
           setLoading(true);
+
           try {
-            const results = s.type === "product" && s.product
-              ? [s.product]
-              : await searchProducts(q);
-            const cat = {
+            const results =
+              s.type === "product" && s.product ? [s.product] : await searchProducts(q);
+
+            const cat: ProductCollection = {
               categoryId: "search",
               categoryTitle: `Results: ${q}`,
               categoryHandle: "search",
               categoryImage: undefined,
               products: results,
-            } as ProductCollection;
+            };
+
             navigation.navigate("ProductList", { category: cat, products: results });
           } catch {
-            Alert.alert("Error", "Search failed. Please try again.");
+            Alert.alert("Error", "Search failed.");
           } finally {
             setLoading(false);
           }
         }}
-        onSubmitQuery={async (q) => {
-          const query = q?.trim() || searchQuery.trim();
-          if (!query) return;
-          setShowSearchOverlay(false);
-          setLoading(true);
-          try {
-            const results = await searchProducts(query);
-            const cat = {
-              categoryId: "search",
-              categoryTitle: `Results: ${query}`,
-              categoryHandle: "search",
-              categoryImage: undefined,
-              products: results,
-            } as ProductCollection;
-            navigation.navigate("ProductList", { category: cat, products: results });
-          } catch {
-            Alert.alert("Error", "Search failed. Please try again.");
-          } finally {
-            setLoading(false);
-          }
-        }}
+        onSubmitQuery={handleSubmitSearch}
       />
-      
-      {/* Hero Carousel */}
-      <View style={styles.hero}>
-        <FlatList
-          ref={flatListRef}
-          data={heroImages}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          keyExtractor={(_, index) => index.toString()}
-          renderItem={({ item }) => (
-            <Image source={item} style={styles.heroImage} />
-          )}
-          onMomentumScrollEnd={(event) => {
-            const contentOffset = event.nativeEvent.contentOffset;
-            const viewSize = event.nativeEvent.layoutMeasurement;
-            const index = Math.floor(contentOffset.x / viewSize.width);
-            setCurrentIndex(index);
-          }}
-        />
-        <View style={styles.pagination}>
-          {heroImages.map((_, index) => (
-            <View
-              key={index}
-              style={[
-                styles.paginationDot,
-                index === currentIndex && styles.paginationDotActive,
-              ]}
-            />
-          ))}
-        </View>
-      </View>
 
-      {/* Category Chips */}
-      <View style={styles.catChipsContainer}>
-        <FlatList
-          data={categories}
-          keyExtractor={(item) => item.categoryId + "_chip"}
-          renderItem={renderCategoryChip}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catChipsRow}
-        />
-      </View>
+      {/* MAIN SCROLL AREA */}
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Hero Slider */}
+        <View style={styles.hero}>
+          <FlatList
+            ref={flatListRef}
+            data={heroImages}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(_, index) => index.toString()}
+            renderItem={({ item }) => <Image source={item} style={styles.heroImage} />}
+            onMomentumScrollEnd={(event) => {
+              const index = Math.floor(
+                event.nativeEvent.contentOffset.x /
+                  event.nativeEvent.layoutMeasurement.width
+              );
+              setCurrentIndex(index);
+            }}
+          />
 
-      {/* Products Grid */}
-      {filteredCategories.length > 0 ? (
-        <FlatList
-          data={filteredCategories}
-          keyExtractor={(item) => item.categoryId}
-          renderItem={renderCategory}
-          numColumns={NUM_COLUMNS}
-          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-          contentContainerStyle={styles.listContent}
-          ListFooterComponent={<View style={{ height: 16 }} />}
-        />
-      ) : (
-        <View style={styles.emptyContainer}>
-          <MaterialIcons name="search-off" size={48} color="#9ca3af" />
-          <Text style={styles.emptyTitle}>No collections found</Text>
-          <Text style={styles.emptySubtitle}>Try a different search.</Text>
+          {/* Pagination */}
+          <View style={styles.pagination}>
+            {heroImages.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.paginationDot,
+                  i === currentIndex && styles.paginationDotActive,
+                ]}
+              />
+            ))}
+          </View>
         </View>
-      )}
+
+        {/* Category Chips */}
+        <View style={styles.catChipsContainer}>
+          <FlatList
+            data={categories}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            renderItem={renderCategoryChip}
+            keyExtractor={(item) => item.categoryId + "_chip"}
+            contentContainerStyle={styles.catChipsRow}
+          />
+        </View>
+
+        {/* Product Grid */}
+        <View style={{ paddingHorizontal: 12 }}>
+          <FlatList
+            data={filteredCategories}
+            numColumns={2}
+            renderItem={renderCategory}
+            keyExtractor={(item) => item.categoryId}
+            scrollEnabled={false} // IMPORTANT — disables internal scroll
+          />
+        </View>
+
+        <View style={{ height: 32 }} />
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  listContent: {
-    padding: 12,
-  },
-  column: {
-    justifyContent: "space-between",
-    marginBottom: 16,
-  },
+  listContent: { padding: 12 },
+  column: { justifyContent: "space-between", marginBottom: 16 },
+
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
-    width: "100%",
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.08,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+
   imageWrapper: {
-    position: "relative",
     backgroundColor: "#fff",
     borderRadius: 8,
-    overflow: "hidden",
     width: "100%",
     height: 180,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
     borderWidth: 1,
     borderColor: "#e5e7eb",
-  },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  placeholder: {
-    width: "100%",
-    height: "100%",
     alignItems: "center",
     justifyContent: "center",
   },
-  title: {
-    fontSize: 16,
-    color: "#111827",
-    marginTop: 8,
-    minHeight: 28,
-    fontWeight: "600",
-    lineHeight: 20,
-  },
-  loadingContainer: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  loadingText: {
-    marginTop: 8,
-    color: "#6b7280",
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 60,
-    paddingBottom: 80,
-  },
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#374151",
-    fontWeight: "600",
-  },
-  emptySubtitle: {
-    marginTop: 4,
-    fontSize: 13,
-    color: "#6b7280",
-  },
-  catChipsContainer: {
-    paddingVertical: 8,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f1f1',
-  },
+
+  image: { width: "100%", height: "100%", resizeMode: "cover" },
+
+  placeholder: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
+
+  title: { fontSize: 16, color: "#111", marginTop: 8, fontWeight: "600" },
+
+  loadingContainer: { flex: 1, alignItems: "center", justifyContent: "center" },
+  loadingText: { marginTop: 8, color: "#666" },
+
   hero: {
     height: 200,
-    marginBottom: 16,
+    marginVertical: 16,
+    marginHorizontal: 12,
     borderRadius: 12,
-    overflow: 'hidden',
-    position: 'relative',
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    overflow: "hidden",
   },
-  heroImage: {
-    width: HERO_WIDTH,
-    height: "100%",
-    resizeMode: "cover",
-  },
+
+  heroImage: { width: HERO_WIDTH, height: "100%", resizeMode: "cover" },
+
   pagination: {
-    flexDirection: 'row',
-    position: 'absolute',
+    flexDirection: "row",
+    position: "absolute",
     bottom: 10,
-    alignSelf: 'center',
+    alignSelf: "center",
   },
+
   paginationDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    backgroundColor: "rgba(255,255,255,0.4)",
     marginHorizontal: 4,
   },
+
   paginationDotActive: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     width: 24,
   },
-  heroOverlay: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    padding: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.65)",
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111827",
-  },
-  heroSubtitle: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#374151",
-    fontWeight: "600",
-  },
-  catChipsRow: {
+
+  catChipsContainer: {
     paddingVertical: 8,
+  },
+
+  catChipsRow: {
+    paddingLeft: 12,
+    paddingBottom: 4,
     gap: 12,
-    paddingHorizontal: 4,
   },
-  catChip: {
-    alignItems: "center",
-    marginRight: 12,
-    width: 80,
-  },
+
+  catChip: { alignItems: "center", width: 80 },
+
   catChipImageWrap: {
     width: 60,
     height: 60,
     borderRadius: 30,
+    borderColor: "#eee",
     borderWidth: 1,
-    borderColor: "#e5e7eb",
     overflow: "hidden",
-    backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
   },
-  catChipImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
-  },
-  catChipPlaceholder: {
-    width: "100%",
-    height: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  catChipLabel: {
-    marginTop: 6,
-    fontSize: 12,
-    color: "#111827",
-    fontWeight: "600",
-  },
+
+  catChipImage: { width: "100%", height: "100%" },
+  catChipPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center" },
+
+  catChipLabel: { marginTop: 6, fontSize: 12, fontWeight: "600", color: "#111" },
 });
