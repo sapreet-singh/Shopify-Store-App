@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert, Dimensions } from "react-native";
 import { getProductCollections, ProductCollection, searchProducts } from "../api/products";
 import CustomHeader from "../components/CustomHeader";
@@ -22,6 +22,23 @@ export default function HomeScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const flatListRef = useRef<FlatList>(null);
+
+  // Auto-scroll hero images
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => 
+        prevIndex === heroImages.length - 1 ? 0 : prevIndex + 1
+      );
+      flatListRef.current?.scrollToIndex({
+        index: currentIndex,
+        animated: true,
+      });
+    }, 3000);
+    
+    return () => clearInterval(interval);
+  }, [currentIndex]);
 
   useEffect(() => {
     setLoading(true);
@@ -153,7 +170,34 @@ export default function HomeScreen({ navigation }: any) {
         ListHeaderComponent={
           <View style={styles.homeHeader}>
             <View style={styles.hero}>
-              
+              <FlatList
+                ref={flatListRef}
+                data={heroImages}
+                horizontal
+                pagingEnabled
+                showsHorizontalScrollIndicator={false}
+                keyExtractor={(_, index) => index.toString()}
+                renderItem={({ item }) => (
+                  <Image source={item} style={styles.heroImage} />
+                )}
+                onMomentumScrollEnd={(event) => {
+                  const contentOffset = event.nativeEvent.contentOffset;
+                  const viewSize = event.nativeEvent.layoutMeasurement;
+                  const index = Math.floor(contentOffset.x / viewSize.width);
+                  setCurrentIndex(index);
+                }}
+              />
+              <View style={styles.pagination}>
+                {heroImages.map((_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.paginationDot,
+                      index === currentIndex && styles.paginationDotActive,
+                    ]}
+                  />
+                ))}
+              </View>
             </View>
             <FlatList
               data={categories}
@@ -306,24 +350,38 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
   },
   hero: {
-    height: 220,
+    height: 200,
+    marginBottom: 16,
     borderRadius: 12,
-    overflow: "hidden",
-    backgroundColor: "#f9fafb",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    marginBottom: 12,
+    overflow: 'hidden',
+    position: 'relative',
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
-    position: "relative",
   },
   heroImage: {
     width: HERO_WIDTH,
     height: "100%",
     resizeMode: "cover",
+  },
+  pagination: {
+    flexDirection: 'row',
+    position: 'absolute',
+    bottom: 10,
+    alignSelf: 'center',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginHorizontal: 4,
+  },
+  paginationDotActive: {
+    backgroundColor: '#fff',
+    width: 24,
   },
   heroOverlay: {
     position: "absolute",
