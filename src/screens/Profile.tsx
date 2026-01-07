@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, Styl
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
 
 // dimensions not used
@@ -79,6 +79,17 @@ export default function ProfileScreen() {
       })
       .finally(() => setLoading(false));
   }, [accessToken, refreshAll]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      StatusBar.setBarStyle("light-content");
+      StatusBar.setBackgroundColor("#111827");
+      return () => {
+        StatusBar.setBarStyle("dark-content");
+        StatusBar.setBackgroundColor("#111827");
+      };
+    }, [])
+  );
 
   const handleLogout = async () => {
     Alert.alert(
@@ -230,8 +241,6 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1e3a8a" />
-      
       {/* Top Banner Background */}
       <View style={styles.topBanner}>
           <View style={styles.topBannerContent}>

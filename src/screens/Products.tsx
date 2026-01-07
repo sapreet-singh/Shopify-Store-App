@@ -7,6 +7,7 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
 import SearchOverlay from "../components/SearchOverlay";
+import { scale } from "react-native-size-matters";
 
 export default function ProductsScreen({ navigation }: any) {
   const NUM_COLUMNS = 2;
@@ -360,7 +361,7 @@ export default function ProductsScreen({ navigation }: any) {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, paddingTop: scale(12) }}>
       <View style={styles.categoryHeader}>
         <TouchableOpacity onPress={() => { setSelectedCategory(null); setSearchQuery(""); }} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={20} color="#111827" />
@@ -374,7 +375,7 @@ export default function ProductsScreen({ navigation }: any) {
         renderItem={renderItem}
         numColumns={NUM_COLUMNS}
         columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-        contentContainerStyle={styles.innerlist2}
+        contentContainerStyle={styles.innerlist}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="search-off" size={48} color="#9ca3af" />
@@ -646,7 +647,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
     opacity: 0.6,
   },
-  innerlist2:{
+  innerlist:{
     paddingHorizontal:12,
     paddingBottom:12
   }

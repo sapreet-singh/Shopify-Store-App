@@ -5,6 +5,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { updateCartLine, removeCartLine } from "../api/cart";
 import { useCart } from "../context/CartContext";
 import { useAuth } from "../context/AuthContext";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const { width } = Dimensions.get('window');
 
@@ -13,6 +14,8 @@ export default function CartScreen({ navigation }: any) {
   const { accessToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const insets=useSafeAreaInsets();
+//   console.log(insets,"insets ");
 
   useFocusEffect(
     useCallback(() => {
@@ -129,7 +132,7 @@ export default function CartScreen({ navigation }: any) {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container , {paddingTop: insets.top}]}>
         {renderHeader()}
         <FlatList
             data={cart}
@@ -224,7 +227,7 @@ export default function CartScreen({ navigation }: any) {
                 )}
             </TouchableOpacity>
         </View>
-    </SafeAreaView>
+    </View>
   );
 }
 

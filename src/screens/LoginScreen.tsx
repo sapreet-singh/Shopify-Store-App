@@ -10,8 +10,7 @@ import {
   KeyboardAvoidingView, 
   Platform, 
   ScrollView,
-  SafeAreaView,
-  StatusBar
+  SafeAreaView
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { loginCustomer, getCustomerProfile, Customer } from '../api/customer';
@@ -118,7 +117,6 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8f9fa" />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
