@@ -60,6 +60,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setAccessToken(null);
       await AsyncStorage.removeItem('accessToken');
       await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('cartId');
     } catch (e) {
       console.error("Logout failed", e);
     }
