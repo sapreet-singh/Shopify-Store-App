@@ -160,63 +160,6 @@ export default function HomeScreen({ navigation }: any) {
         onFocus={() => setShowSearchOverlay(true)}
         onSubmit={handleSubmitSearch}
       />
-      <FlatList
-        data={filteredCategories}
-        keyExtractor={(item) => item.categoryId}
-        renderItem={renderCategory}
-        numColumns={NUM_COLUMNS}
-        columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-        contentContainerStyle={styles.listContent}
-        ListHeaderComponent={
-          <View style={styles.homeHeader}>
-            <View style={styles.hero}>
-              <FlatList
-                ref={flatListRef}
-                data={heroImages}
-                horizontal
-                pagingEnabled
-                showsHorizontalScrollIndicator={false}
-                keyExtractor={(_, index) => index.toString()}
-                renderItem={({ item }) => (
-                  <Image source={item} style={styles.heroImage} />
-                )}
-                onMomentumScrollEnd={(event) => {
-                  const contentOffset = event.nativeEvent.contentOffset;
-                  const viewSize = event.nativeEvent.layoutMeasurement;
-                  const index = Math.floor(contentOffset.x / viewSize.width);
-                  setCurrentIndex(index);
-                }}
-              />
-              <View style={styles.pagination}>
-                {heroImages.map((_, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.paginationDot,
-                      index === currentIndex && styles.paginationDotActive,
-                    ]}
-                  />
-                ))}
-              </View>
-            </View>
-            <FlatList
-              data={categories}
-              keyExtractor={(item) => item.categoryId + "_chip"}
-              renderItem={renderCategoryChip}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.catChipsRow}
-            />
-          </View>
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="search-off" size={48} color="#9ca3af" />
-            <Text style={styles.emptyTitle}>No collections found</Text>
-            <Text style={styles.emptySubtitle}>Try a different search.</Text>
-          </View>
-        }
-      />
       <SearchOverlay
         visible={showSearchOverlay}
         query={searchQuery}
@@ -266,6 +209,69 @@ export default function HomeScreen({ navigation }: any) {
           }
         }}
       />
+      
+      {/* Hero Carousel */}
+      <View style={styles.hero}>
+        <FlatList
+          ref={flatListRef}
+          data={heroImages}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          keyExtractor={(_, index) => index.toString()}
+          renderItem={({ item }) => (
+            <Image source={item} style={styles.heroImage} />
+          )}
+          onMomentumScrollEnd={(event) => {
+            const contentOffset = event.nativeEvent.contentOffset;
+            const viewSize = event.nativeEvent.layoutMeasurement;
+            const index = Math.floor(contentOffset.x / viewSize.width);
+            setCurrentIndex(index);
+          }}
+        />
+        <View style={styles.pagination}>
+          {heroImages.map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.paginationDot,
+                index === currentIndex && styles.paginationDotActive,
+              ]}
+            />
+          ))}
+        </View>
+      </View>
+
+      {/* Category Chips */}
+      <View style={styles.catChipsContainer}>
+        <FlatList
+          data={categories}
+          keyExtractor={(item) => item.categoryId + "_chip"}
+          renderItem={renderCategoryChip}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.catChipsRow}
+        />
+      </View>
+
+      {/* Products Grid */}
+      {filteredCategories.length > 0 ? (
+        <FlatList
+          data={filteredCategories}
+          keyExtractor={(item) => item.categoryId}
+          renderItem={renderCategory}
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+          contentContainerStyle={styles.listContent}
+          ListFooterComponent={<View style={{ height: 16 }} />}
+        />
+      ) : (
+        <View style={styles.emptyContainer}>
+          <MaterialIcons name="search-off" size={48} color="#9ca3af" />
+          <Text style={styles.emptyTitle}>No collections found</Text>
+          <Text style={styles.emptySubtitle}>Try a different search.</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -346,8 +352,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6b7280",
   },
-  homeHeader: {
-    paddingBottom: 12,
+  catChipsContainer: {
+    paddingVertical: 8,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f1f1',
   },
   hero: {
     height: 200,

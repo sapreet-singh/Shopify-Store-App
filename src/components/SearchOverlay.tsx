@@ -105,6 +105,26 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
     );
   };
 
+  const renderHeader = () => (
+    <>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Past Searches</Text>
+        {pastSearches.length > 0 && (
+          <TouchableOpacity onPress={clearPastSearches}><Text style={styles.clearText}>Clear all</Text></TouchableOpacity>
+        )}
+      </View>
+      <View style={styles.chipsWrap}>
+        {pastSearches.map((p) => (
+          <TouchableOpacity key={p} style={styles.chip} onPress={() => { addPastSearch(p); onSubmitQuery(p); }}>
+            <MaterialIcons name="history" size={16} color="#374151" />
+            <Text style={styles.chipText}>{p}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Best Sellers</Text>
+    </>
+  );
+
   return (
     <View style={styles.overlay}>
       <View style={styles.panel}>
@@ -119,36 +139,20 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
             ListHeaderComponent={<Text style={styles.sectionTitle}>Suggestions</Text>}
           />
         ) : (
-          <ScrollView>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Past Searches</Text>
-              {pastSearches.length > 0 && (
-                <TouchableOpacity onPress={clearPastSearches}><Text style={styles.clearText}>Clear all</Text></TouchableOpacity>
-              )}
-            </View>
-            <View style={styles.chipsWrap}>
-              {pastSearches.map((p) => (
-                <TouchableOpacity key={p} style={styles.chip} onPress={() => { addPastSearch(p); onSubmitQuery(p); }}>
-                  <MaterialIcons name="history" size={16} color="#374151" />
-                  <Text style={styles.chipText}>{p}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-            <Text style={[styles.sectionTitle, { marginTop: 12 }]}>Best Sellers</Text>
-            <FlatList
-              data={bestSellers}
-              keyExtractor={(item) => item.id}
-              renderItem={renderBestSeller}
-              numColumns={2}
-              columnWrapperStyle={{ justifyContent: "space-between" }}
-              contentContainerStyle={{ paddingVertical: 8 }}
-              ListFooterComponent={
-                <TouchableOpacity style={styles.viewAllBtn} onPress={() => onSubmitQuery(query || "")}>
-                  <Text style={styles.viewAllText}>VIEW ALL</Text>
-                </TouchableOpacity>
-              }
-            />
-          </ScrollView>
+          <FlatList
+            data={bestSellers}
+            ListHeaderComponent={renderHeader}
+            keyExtractor={(item) => item.id}
+            renderItem={renderBestSeller}
+            numColumns={2}
+            columnWrapperStyle={{ justifyContent: "space-between" }}
+            contentContainerStyle={{ paddingVertical: 8 }}
+            ListFooterComponent={
+              <TouchableOpacity style={styles.viewAllBtn} onPress={() => onSubmitQuery(query || "")}>
+                <Text style={styles.viewAllText}>VIEW ALL</Text>
+              </TouchableOpacity>
+            }
+          />
         )}
         <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
           <MaterialIcons name="close" size={22} color="#111827" />
