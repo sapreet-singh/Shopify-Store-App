@@ -1,14 +1,15 @@
-import React, { useEffect, useState, useLayoutEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, ActivityIndicator, StyleSheet, Alert } from "react-native";
-import { getProducts, Product, getProductCollections, ProductCollection } from "../api/products";
+import { Product, getProductCollections, ProductCollection, searchProducts } from "../api/products";
 import CustomHeader from "../components/CustomHeader";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
+import SearchOverlay from "../components/SearchOverlay";
 
 export default function ProductsScreen({ navigation }: any) {
-  const NUM_COLUMNS = 1;
+  const NUM_COLUMNS = 2;
   const [categories, setCategories] = useState<ProductCollection[]>([]);
   const [filteredCategories, setFilteredCategories] = useState<ProductCollection[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
@@ -16,6 +17,7 @@ export default function ProductsScreen({ navigation }: any) {
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
@@ -56,20 +58,29 @@ export default function ProductsScreen({ navigation }: any) {
     }
   }, [searchQuery, categories, selectedCategory, products]);
 
-  useLayoutEffect(() => {
-    navigation.setOptions({
-        headerTitle: () => (
-            <CustomHeader 
-                title={selectedCategory ? selectedCategory.categoryTitle : "Collections"} 
-                searchEnabled={true} 
-                onSearch={setSearchQuery} 
-            />
-        ),
-        headerStyle: {
-            height: 120,
-        }
-    });
-  }, [navigation, selectedCategory]);
+  const handleSubmitSearch = async (q: string) => {
+    const query = q?.trim() || "";
+    if (!query) return;
+    setShowSearchOverlay(false);
+    setLoading(true);
+    try {
+      const results = await searchProducts(query);
+      const cat = {
+        categoryId: "search",
+        categoryTitle: `Results: ${query}`,
+        categoryHandle: "search",
+        categoryImage: undefined,
+        products: results,
+      } as ProductCollection;
+      setSelectedCategory(cat);
+      setProducts(results);
+      setFilteredProducts(results);
+    } catch {
+      Alert.alert("Error", "Search failed. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -126,6 +137,7 @@ export default function ProductsScreen({ navigation }: any) {
 
     return (
       <TouchableOpacity
+        style={styles.gridItem}
         onPress={() => navigation.navigate("ProductDetails", { product: item })}
         activeOpacity={0.8}
       >
@@ -182,6 +194,7 @@ export default function ProductsScreen({ navigation }: any) {
     const imageUrl = item.categoryImage?.url;
     return (
       <TouchableOpacity
+      style={{width:"48%"}}
         onPress={() => {
           setSelectedCategory(item);
           const prods = item.products || [];
@@ -209,6 +222,35 @@ export default function ProductsScreen({ navigation }: any) {
     );
   };
 
+  const renderCategoryChip = ({ item }: { item: ProductCollection }) => {
+    const imageUrl = item.categoryImage?.url;
+    return (
+      <TouchableOpacity
+        style={styles.catChip}
+        onPress={() => {
+          setSelectedCategory(item);
+          const prods = item.products || [];
+          setProducts(prods);
+          setFilteredProducts(prods);
+          setSearchQuery("");
+        }}
+      >
+        <View style={styles.catChipImageWrap}>
+          {imageUrl ? (
+            <Image source={{ uri: imageUrl }} style={styles.catChipImage} />
+          ) : (
+            <View style={styles.catChipPlaceholder}>
+              <MaterialIcons name="image" size={18} color="#9ca3af" />
+            </View>
+          )}
+        </View>
+        <Text style={styles.catChipLabel} numberOfLines={1}>
+          {item.categoryTitle || item.categoryHandle}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -220,21 +262,100 @@ export default function ProductsScreen({ navigation }: any) {
 
   if (!selectedCategory) {
     return (
-      <FlatList
-        data={filteredCategories}
-        keyExtractor={(item) => item.categoryId}
-        renderItem={renderCategory}
-        numColumns={NUM_COLUMNS}
-        columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-        contentContainerStyle={styles.listContent}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="search-off" size={48} color="#9ca3af" />
-            <Text style={styles.emptyTitle}>No collections found</Text>
-            <Text style={styles.emptySubtitle}>Try a different search.</Text>
-          </View>
-        }
-      />
+      <View style={{ flex: 1 }}>
+        <CustomHeader
+          title={"Collections"}
+          searchEnabled={true}
+          onSearch={setSearchQuery}
+          value={searchQuery}
+          onFocus={() => setShowSearchOverlay(true)}
+          onSubmit={handleSubmitSearch}
+        />
+        <FlatList
+          data={filteredCategories}
+          keyExtractor={(item) => item.categoryId}
+          renderItem={renderCategory}
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+          contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <View style={styles.homeHeader}>
+              <View style={styles.hero}>
+                <Text style={styles.heroTitle}>STAY TRENDY</Text>
+                <Text style={styles.heroSubtitle}>OUR NEW iPhone CASES COLLECTION</Text>
+              </View>
+              <FlatList
+                data={categories}
+                keyExtractor={(item) => item.categoryId + "_chip"}
+                renderItem={renderCategoryChip}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.catChipsRow}
+              />
+            </View>
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="search-off" size={48} color="#9ca3af" />
+              <Text style={styles.emptyTitle}>No collections found</Text>
+              <Text style={styles.emptySubtitle}>Try a different search.</Text>
+            </View>
+          }
+        />
+        <SearchOverlay
+          visible={showSearchOverlay}
+          query={searchQuery}
+          onClose={() => setShowSearchOverlay(false)}
+          onPickSuggestion={async (s) => {
+            const q = s.type === "product" ? s.title : (s.query || "");
+            if (!q) return;
+            setShowSearchOverlay(false);
+            setLoading(true);
+            try {
+              const results = s.type === "product" && s.product
+                ? [s.product]
+                : await searchProducts(q);
+              const cat = {
+                categoryId: "search",
+                categoryTitle: `Results: ${q}`,
+                categoryHandle: "search",
+                categoryImage: undefined,
+                products: results,
+              } as ProductCollection;
+              setSelectedCategory(cat);
+              setProducts(results);
+              setFilteredProducts(results);
+            } catch {
+              Alert.alert("Error", "Search failed. Please try again.");
+            } finally {
+              setLoading(false);
+            }
+          }}
+          onSubmitQuery={async (q) => {
+            const query = q?.trim() || searchQuery.trim();
+            if (!query) return;
+            setShowSearchOverlay(false);
+            setLoading(true);
+            try {
+              const results = await searchProducts(query);
+              const cat = {
+                categoryId: "search",
+                categoryTitle: `Results: ${query}`,
+                categoryHandle: "search",
+                categoryImage: undefined,
+                products: results,
+              } as ProductCollection;
+              setSelectedCategory(cat);
+              setProducts(results);
+              setFilteredProducts(results);
+            } catch {
+              Alert.alert("Error", "Search failed. Please try again.");
+            } finally {
+              setLoading(false);
+            }
+          }}
+        />
+      </View>
     );
   }
 
@@ -253,7 +374,7 @@ export default function ProductsScreen({ navigation }: any) {
         renderItem={renderItem}
         numColumns={NUM_COLUMNS}
         columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
-        contentContainerStyle={styles.listContent}
+        contentContainerStyle={styles.innerlist2}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="search-off" size={48} color="#9ca3af" />
@@ -262,24 +383,39 @@ export default function ProductsScreen({ navigation }: any) {
           </View>
         }
       />
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.bottomAction}>
+          <MaterialIcons name="sort" size={18} color="#111827" />
+          <Text style={styles.bottomActionText}>SORT BY</Text>
+        </TouchableOpacity>
+        <View style={styles.bottomDivider} />
+        <TouchableOpacity style={styles.bottomAction}>
+          <MaterialIcons name="filter-list" size={18} color="#111827" />
+          <Text style={styles.bottomActionText}>FILTER BY</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   listContent: {
+    
     padding: 12,
   },
   column: {
     justifyContent: "space-between",
     marginBottom: 16,
   },
+  gridItem: {
+    width: "48%",
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,
     padding: 12,
     width: "100%",
-    marginBottom: 12,
+    // marginBottom: 12,
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.08,
@@ -410,4 +546,108 @@ const styles = StyleSheet.create({
     color: "#374151",
     fontWeight: "600",
   },
+  homeHeader: {
+    paddingBottom: 12,
+  },
+  hero: {
+    height: 220,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: "#f9fafb",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  heroSubtitle: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#374151",
+    fontWeight: "600",
+  },
+  catChipsRow: {
+    
+    paddingVertical: 8,
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  catChip: {
+    alignItems: "center",
+    marginRight: 12,
+    width: 80,
+  },
+  catChipImageWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  catChipPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#111827",
+    fontWeight: "600",
+  },
+  bottomBar: {
+    position: "absolute",
+    left: 12,
+    right: 12,
+    bottom: 12,
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#111827",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    height: 44,
+    elevation: 3,
+  },
+  bottomAction: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  bottomActionText: {
+    color: "#111827",
+    fontWeight: "700",
+  },
+  bottomDivider: {
+    width: 1,
+    height: 24,
+    backgroundColor: "#111827",
+    opacity: 0.6,
+  },
+  innerlist2:{
+    paddingHorizontal:12,
+    paddingBottom:12
+  }
 });

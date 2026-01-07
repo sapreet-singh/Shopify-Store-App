@@ -16,8 +16,7 @@ export default function ProductsStack() {
         name="ProductsList" 
         component={ProductsScreen} 
         options={{ 
-          headerShown: true,
-          headerTitle: () => <CustomHeader title="Shopify Store" searchEnabled={true} />,
+          headerShown: false,
         }}
       />
       <Stack.Screen 

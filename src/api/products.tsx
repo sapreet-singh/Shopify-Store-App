@@ -102,3 +102,78 @@ export interface Product {
       images: p.images || []
     }));
   };
+
+  export interface PredictiveSuggestion {
+    type: "product" | "query";
+    title: string;
+    handle?: string;
+    image?: { url: string };
+    price?: string;
+    product?: Product;
+    query?: string;
+  }
+
+  export const predictiveSearch = async (query: string): Promise<PredictiveSuggestion[]> => {
+    if (!query || !query.trim()) return [];
+    try {
+      const res = await API.get("/api/storefront/predictive", { params: { query } });
+      const data = Array.isArray(res.data) ? res.data : [];
+      return data.map((s: any) => {
+        if (s.type === "product" && s.product) {
+          const prod = mapIncomingProduct(s.product);
+          return {
+            type: "product",
+            title: prod.title,
+            handle: prod.handle,
+            image: prod.featuredImage,
+            price: prod.price,
+            product: prod
+          } as PredictiveSuggestion;
+        }
+        return {
+          type: "query",
+          title: String(s.title || s.query || query),
+          query: String(s.query || s.title || query)
+        } as PredictiveSuggestion;
+      });
+    } catch (e) {
+      try {
+        const res2 = await API.get("/api/products/predictive", { params: { query } });
+        const data2 = Array.isArray(res2.data) ? res2.data : [];
+        return data2.map((p: any) => ({
+          type: "product",
+          title: p.title,
+          handle: p.handle,
+          image: typeof p.featuredImage === "string" ? { url: normalizeUrl(p.featuredImage)! } : p.featuredImage,
+          price: String(p.price),
+          product: mapIncomingProduct(p)
+        }));
+      } catch {
+        const fallback = await searchProducts(query);
+        return fallback.slice(0, 5).map((p) => ({
+          type: "product",
+          title: p.title,
+          handle: p.handle,
+          image: p.featuredImage,
+          price: p.price,
+          product: p
+        }));
+      }
+    }
+  };
+
+  export const getBestSellers = async (): Promise<Product[]> => {
+    try {
+      const res = await API.get("/api/products/best-sellers");
+      const data = Array.isArray(res.data) ? res.data : [];
+      return data.map(mapIncomingProduct);
+    } catch {
+      const all = await getProducts();
+      const sorted = [...all].sort((a, b) => {
+        const av = (a.images?.length || 0) + (a.availableForSale ? 1 : 0);
+        const bv = (b.images?.length || 0) + (b.availableForSale ? 1 : 0);
+        return bv - av;
+      });
+      return sorted.slice(0, 8);
+    }
+  };

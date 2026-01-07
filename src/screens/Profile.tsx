@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, FlatList, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, SafeAreaView, Dimensions, Modal, Image, StatusBar } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, Modal, StatusBar } from "react-native";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useNavigation } from "@react-navigation/native";
 import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
 
-const { width } = Dimensions.get('window');
+// dimensions not used
 
 const STATIC_ORDERS = [
     { id: '101', item: 'Nike Air Max', price: '$120.00', date: 'Jan 12, 2025', status: 'Delivered', color: '#10b981' },
@@ -50,16 +50,6 @@ export default function ProfileScreen() {
   };
 
   const extractId = (obj: any) => obj?.id || obj?.Id || obj?.addressId;
-  const normalizeAddresses = (customer: any, list: any[], defIdOverride?: string) => {
-    const defObj = customer?.defaultAddress || customer?.DefaultAddress;
-    const defId = defIdOverride ?? extractId(defObj);
-    return (Array.isArray(list) ? list : []).map((a) => {
-      const aid = extractId(a);
-      const existing = !!(a?.isDefault || a?.default || a?.isDefaultAddress);
-      const computed = defId ? String(aid) === String(defId) : existing;
-      return { ...a, isDefault: computed };
-    });
-  };
 
   const refreshAll = useCallback(async (token: string) => {
     const [profRes, addrRes] = await Promise.all([getCustomerProfile(token), getCustomerAddresses(token)]);
@@ -72,7 +62,12 @@ export default function ProfileScreen() {
     const addrs = Array.isArray(aData)
       ? aData
       : (aData.addresses || aData.data?.addresses || customer?.addresses || []);
-    const normalized = normalizeAddresses(customer, Array.isArray(addrs) ? addrs : [], defAId);
+    const normalized = (Array.isArray(addrs) ? addrs : []).map((a: any) => {
+      const aid = extractId(a);
+      const existing = !!(a?.isDefault || a?.default || a?.isDefaultAddress);
+      const computed = defAId ? String(aid) === String(defAId) : existing;
+      return { ...a, isDefault: computed };
+    });
     setAddresses(normalized);
   }, []);
 
@@ -149,12 +144,12 @@ export default function ProfileScreen() {
       await refreshAll(accessToken);
       setFormVisible(false);
       notify(editMode ? "Address updated" : "Address added");
-    } catch (e: any) {
-      const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || "Failed to save address";
-      Alert.alert("Error", msg);
-    } finally {
-      setLoading(false);
-    }
+      } catch (e: any) {
+        const msg = e?.response?.data?.message || e?.response?.data?.error || e?.message || "Failed to save address";
+        Alert.alert("Error", msg);
+      } finally {
+        setLoading(false);
+      }
   };
 
   const removeAddress = async (addr: any) => {
@@ -176,7 +171,7 @@ export default function ProfileScreen() {
                         await deleteAddress(String(id), accessToken);
                         await refreshAll(accessToken);
                         notify("Address deleted");
-                    } catch (e) {
+                    } catch {
                         Alert.alert("Error", "Failed to delete address");
                     } finally {
                         setLoading(false);
@@ -203,7 +198,7 @@ export default function ProfileScreen() {
       await setDefaultAddress({ id: String(id) });
       await refreshAll(accessToken);
       notify("Default address updated");
-    } catch (e) {
+    } catch {
       Alert.alert("Error", "Failed to set default");
     } finally {
       setLoading(false);
