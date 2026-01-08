@@ -4,7 +4,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer"; 
+import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest, changePassword } from "../api/customer"; 
 import CustomHeader from "../components/CustomHeader";
 
 export default function ProfileScreen() {
@@ -26,6 +26,10 @@ export default function ProfileScreen() {
     zip: "",
     phone: "",
   });
+  
+  const [pwdVisible, setPwdVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   const notify = (msg: string) => {
     if (Platform.OS === "android") {
@@ -279,7 +283,7 @@ export default function ProfileScreen() {
                             <MaterialIcons name="chevron-right" size={22} color="#9ca3af" />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.cardRow} onPress={() => Alert.alert("Change Password", "Use Forgot Password from Login screen.")}>
+                        <TouchableOpacity style={styles.cardRow} onPress={() => setPwdVisible(true)}>
                             <View style={styles.cardIcon}>
                                 <MaterialIcons name="lock" size={20} color="#111827" />
                             </View>
@@ -456,6 +460,68 @@ export default function ProfileScreen() {
                         {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Save Address</Text>}
                     </TouchableOpacity>
                 </ScrollView>
+            </View>
+        </KeyboardAvoidingView>
+      </Modal>
+      
+      <Modal
+        visible={pwdVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPwdVisible(false)}
+      >
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalOverlay}
+        >
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Change Password</Text>
+                    <TouchableOpacity onPress={() => setPwdVisible(false)}>
+                        <MaterialIcons name="close" size={24} color="#6b7280" />
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>New Password</Text>
+                  <TextInput 
+                    placeholder="Enter new password" 
+                    style={styles.input} 
+                    secureTextEntry 
+                    value={newPassword} 
+                    onChangeText={setNewPassword} 
+                  />
+                </View>
+                <TouchableOpacity 
+                  style={styles.saveBtn} 
+                  onPress={async () => {
+                    if (!accessToken) return;
+                    if (!newPassword) {
+                      Alert.alert("Error", "Please enter new password");
+                      return;
+                    }
+                    try {
+                      setPwdLoading(true);
+                      const res = await changePassword(accessToken, newPassword);
+                      const ok = res?.data?.Success ?? true;
+                      if (ok) {
+                        notify("Password changed successfully");
+                        setPwdVisible(false);
+                        setNewPassword("");
+                      } else {
+                        const err = res?.data?.Error || "Failed to change password";
+                        Alert.alert("Error", err);
+                      }
+                    } catch (e: any) {
+                      const msg = e?.response?.data?.error || e?.message || "Failed to change password";
+                      Alert.alert("Error", msg);
+                    } finally {
+                      setPwdLoading(false);
+                    }
+                  }}
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Update Password</Text>}
+                </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
       </Modal>

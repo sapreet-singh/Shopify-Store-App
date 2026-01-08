@@ -4,8 +4,8 @@ import HomeScreen from "../screens/Home";
 import ProductsScreen from "../screens/Products";
 import ProductDetailsScreen from "../screens/ProductDetails";
 import CheckoutWebview from "../screens/CheckoutWebview";
-import LoginScreen from "../screens/LoginScreen";
-import RegisterScreen from "../screens/RegisterScreen";
+import LoginScreen from "../screens/Login";
+import RegisterScreen from "../screens/Register";
 import CustomHeader from "../components/CustomHeader";
 
 const Stack = createNativeStackNavigator();
