@@ -20,7 +20,7 @@ export default function PrivacyPolicy() {
           <MaterialIcons name="arrow-back" size={22} color="#1f2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -138,6 +138,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerSpacer: {
+    width: 24,
+  },
   content: { paddingHorizontal: 16, paddingTop: 16 },
   contentCard: {
     backgroundColor: '#ffffff',

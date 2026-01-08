@@ -206,7 +206,7 @@ export default function CartScreen({ navigation }: any) {
         />
         
         <View style={styles.checkoutFooter}>  
-            <View style={[styles.summaryRow, { marginBottom: 20 }]}>
+            <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
                 <Text style={styles.totalValue}>₹{total.toFixed(2)}</Text>
             </View>
@@ -452,6 +452,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#1f2937',
+    },
+    totalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     totalLabel: {
         fontSize: 18,

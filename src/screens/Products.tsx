@@ -157,7 +157,7 @@ export default function ProductsScreen({ navigation, route }: any) {
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: scale(12) }}>
+    <View style={styles.container}>
       <View style={styles.categoryHeader}>
         <TouchableOpacity onPress={() => navigation.navigate("Home")} style={styles.backBtn}>
           <MaterialIcons name="arrow-back" size={20} color="#111827" />
@@ -196,6 +196,10 @@ export default function ProductsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: scale(12),
+  },
   column: {
     justifyContent: "space-between",
     marginBottom: 16,

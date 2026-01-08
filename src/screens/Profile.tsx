@@ -344,7 +344,7 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
 
                     {loading && addresses.length === 0 ? (
-                        <ActivityIndicator style={{ marginTop: 20 }} size="large" color="#2563eb" />
+                        <ActivityIndicator style={styles.loader} size="large" color="#2563eb" />
                     ) : addresses.length === 0 ? (
                         <View style={styles.emptyState}>
                             <MaterialIcons name="location-off" size={48} color="#e5e7eb" />
@@ -359,7 +359,7 @@ export default function ProfileScreen() {
                                         <View style={styles.addressIcon}>
                                             <MaterialIcons name={isDefault ? "star" : "place"} size={20} color={isDefault ? "#d97706" : "#6b7280"} />
                                         </View>
-                                        <View style={{flex: 1}}>
+                                        <View style={styles.flex1}>
                                             <Text style={styles.addressType}>{item.city}</Text> 
                                         </View>
                                         {isDefault && (
@@ -403,7 +403,7 @@ export default function ProfileScreen() {
 
             )}
 
-            <View style={{height: 40}} /> 
+            <View style={styles.footerSpacer} /> 
           </ScrollView>
       </View>
 
@@ -438,24 +438,24 @@ export default function ProfileScreen() {
                     </View>
                     
                     <View style={styles.row}>
-                        <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                        <View style={styles.inputGroupHalf}>
                             <Text style={styles.label}>City</Text>
                             <TextInput placeholder="City" style={styles.input} value={form.city} onChangeText={(t) => setForm((f) => ({ ...f, city: t }))} />
                         </View>
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
+                        <View style={styles.inputGroupFlex}>
                             <Text style={styles.label}>State/Province</Text>
                             <TextInput placeholder="State" style={styles.input} value={form.province || ""} onChangeText={(t) => setForm((f) => ({ ...f, province: t }))} />
                         </View>
                     </View>
                     
                     <View style={styles.row}>
-                        <View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+                        <View style={styles.inputGroupHalf}>
                             <Text style={styles.label}>Country</Text>
                             <TextInput placeholder="Country" style={styles.input} value={form.country} onChangeText={(t) => setForm((f) => ({ ...f, country: t }))} />
                         </View>
-                        <View style={[styles.inputGroup, { flex: 1 }]}>
-                            <Text style={styles.label}>ZIP Code</Text>
-                            <TextInput placeholder="12345" style={styles.input} value={form.zip} onChangeText={(t) => setForm((f) => ({ ...f, zip: t }))} />
+                        <View style={styles.inputGroupFlex}>
+                            <Text style={styles.label}>Zip/Postal Code</Text>
+                            <TextInput placeholder="Zip Code" style={styles.input} value={form.zip} onChangeText={(t) => setForm((f) => ({ ...f, zip: t }))} />
                         </View>
                     </View>
 
@@ -609,10 +609,44 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1f2937' },
   formScroll: { maxHeight: 500 },
-  inputGroup: { marginBottom: 16 },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputGroupHalf: {
+    marginBottom: 16,
+    flex: 1,
+    marginRight: 10,
+  },
+  inputGroupFlex: {
+    marginBottom: 16,
+    flex: 1,
+  },
   row: { flexDirection: 'row' },
-  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 8 },
-  input: { backgroundColor: '#f9fafb', borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, fontSize: 16, color: '#1f2937' },
+  label: {
+    fontSize: 14,
+    color: '#374151',
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1f2937',
+    backgroundColor: '#fff',
+  },
+  loader: {
+    marginTop: 20,
+  },
+  flex1: {
+    flex: 1,
+  },
+  footerSpacer: {
+    height: 40,
+  },
   saveBtn: { backgroundColor: '#2563eb', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 8, marginBottom: 24 },
   saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
 });

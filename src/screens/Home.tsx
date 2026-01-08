@@ -96,7 +96,7 @@ export default function HomeScreen({ navigation }: any) {
 
     return (
       <TouchableOpacity
-        style={{ width: "48%", marginBottom: 16 }}
+        style={styles.categoryCardWrapper}
         activeOpacity={0.8}
         onPress={() =>
           navigation.navigate("ProductList", { category: item, products: item.products || [] })
@@ -158,7 +158,7 @@ export default function HomeScreen({ navigation }: any) {
   const NUM_COLUMNS = 2;
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#fff' }}>
+    <View style={styles.container}>
       {/* Fixed Header */}
       <CustomHeader
         title="Home"
@@ -251,7 +251,7 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         {/* Product Grid */}
-        <View style={{ paddingHorizontal: 12 }}>
+        <View style={styles.gridContainer}>
           <FlatList
             data={filteredCategories}
             numColumns={NUM_COLUMNS}
@@ -263,15 +263,29 @@ export default function HomeScreen({ navigation }: any) {
           />
         </View>
 
-        <View style={{ height: 32 }} />
+        <View style={styles.footerSpacer} />
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
   listContent: { 
     padding: 12,
+  },
+  gridContainer: {
+    paddingHorizontal: 12,
+  },
+  footerSpacer: {
+    height: 32,
+  },
+  categoryCardWrapper: {
+    width: "48%",
+    marginBottom: 16,
   },
   columnWrapper: { 
     justifyContent: 'space-between',

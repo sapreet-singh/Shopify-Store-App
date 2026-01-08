@@ -95,7 +95,7 @@ const { width } = Dimensions.get("window");
     const isOutOfStock = !product.availableForSale || product.quantityAvailable === 0;
   
     const renderImageItem = ({ item }: { item: { url: string } }) => (
-      <View style={{ width: width, height: 300, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
+      <View style={styles.carouselItem}>
          <Image source={{ uri: item.url }} style={styles.image} />
       </View>
     );
@@ -112,14 +112,14 @@ const { width } = Dimensions.get("window");
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                style={{ height: 300 }}
+                style={styles.carousel}
               />
               {/* Top actions over image area */}
               <View style={styles.imageTopBar}>
                 <View style={[styles.stockPill, { backgroundColor: isOutOfStock ? "#ef4444" : "#10b981" }]}>
                   <Text style={styles.stockPillText}>{isOutOfStock ? "Out of stock" : "In stock"}</Text>
                 </View>
-                <View style={{ flexDirection: "row" }}>
+                <View style={styles.actionIcons}>
                   <TouchableOpacity style={styles.roundIcon} onPress={() => setIsFav(!isFav)}>
                     <MaterialIcons name={isFav ? "favorite" : "favorite-outline"} size={20} color={isFav ? "#ef4444" : "#111827"} />
                   </TouchableOpacity>
@@ -232,10 +232,23 @@ const { width } = Dimensions.get("window");
       flex: 1,
       backgroundColor: "#fff",
     },
+    carouselItem: {
+      width: width,
+      height: 300,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f9f9f9',
+    },
+    carousel: {
+      height: 300,
+    },
     image: {
       width: width, // Use full width
       height: 300,
       resizeMode: "contain",
+    },
+    actionIcons: {
+      flexDirection: "row",
     },
     imageTopBar: {
       position: "absolute",

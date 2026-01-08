@@ -10,6 +10,9 @@ import CustomHeader from "../components/CustomHeader";
 
 const Stack = createNativeStackNavigator();
 
+const ProductDetailsHeader = () => <CustomHeader title="Product Details" />;
+const CheckoutHeader = () => <CustomHeader title="Checkout" />;
+
 export default function ProductsStack() {
   return (
     <Stack.Navigator initialRouteName="Home">
@@ -30,12 +33,12 @@ export default function ProductsStack() {
       <Stack.Screen 
         name="ProductDetails" 
         component={ProductDetailsScreen} 
-        options={{ headerTitle: () => <CustomHeader title="Product Details" /> }}
+        options={{ headerTitle: ProductDetailsHeader }}
       />
       <Stack.Screen 
         name="Checkout" 
         component={CheckoutWebview} 
-        options={{ headerTitle: () => <CustomHeader title="Checkout" /> }}
+        options={{ headerTitle: CheckoutHeader }}
       />
       <Stack.Screen 
         name="Login" 

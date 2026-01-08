@@ -57,7 +57,7 @@ export default function OrderHistoryScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1f2937" />
       </View>
     );
@@ -74,13 +74,13 @@ export default function OrderHistoryScreen() {
           <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {orders.length === 0 ? (
-           <View style={{ alignItems: 'center', marginTop: 40 }}>
-             <Text style={{ color: '#6b7280' }}>No orders found.</Text>
+           <View style={styles.emptyContainer}>
+             <Text style={styles.emptyText}>No orders found.</Text>
            </View>
         ) : (
           orders.map((order) => {
@@ -160,6 +160,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f3f4f6',
   },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -178,9 +184,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1f2937',
   },
+  headerSpacer: {
+    width: 24,
+  },
   content: {
     flex: 1,
     padding: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+    color: '#6b7280',
   },
   orderCard: {
     backgroundColor: '#fff',

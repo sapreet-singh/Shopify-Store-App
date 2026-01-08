@@ -20,6 +20,8 @@ enableScreens();
 
 const Tab = createBottomTabNavigator();
 
+const HeaderTitle = () => <CustomHeader title="Shopify Store" />;
+
 function AppTabs() {
   const { accessToken } = useAuth();
   const { cartCount } = useCart();
@@ -29,7 +31,7 @@ function AppTabs() {
         headerShown: false,
         tabBarActiveTintColor: "#2563eb",
         tabBarInactiveTintColor: "#9ca3af",
-        headerTitle: () => <CustomHeader title="Shopify Store" />,
+        headerTitle: HeaderTitle,
         tabBarLabelStyle: { fontSize: 12 },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = "home";
