@@ -8,10 +8,10 @@ export default function CheckoutWebview({ route, navigation }: any) {
   const webViewRef = useRef(null);
 
   const handleNavigationStateChange = (navState: any) => {
-    const { url } = navState;
-    console.log('Current URL:', url);
+    const { url: currentUrl } = navState;
+    console.log('Current URL:', currentUrl);
 
-    if (url.includes('/thank_you') || url.includes('/orders/') || url.includes('payment_complete=true')) {
+    if (currentUrl.includes('/thank_you') || currentUrl.includes('/orders/') || currentUrl.includes('payment_complete=true')) {
         Alert.alert(
             "Order Placed", 
             "Your order has been successfully placed!",
