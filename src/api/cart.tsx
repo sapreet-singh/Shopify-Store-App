@@ -11,6 +11,11 @@ export interface CartItem {
   variantId?: string;
 }
 
+export interface CartFetchResult {
+  items: CartItem[];
+  checkoutUrl?: string | null;
+} 
+
 let currentCartId: string | null = null;
 
 const normalizeString = (value: any): string | null => {
@@ -19,16 +24,8 @@ const normalizeString = (value: any): string | null => {
   return trimmed.replace(/^`+|`+$/g, "").replace(/^"+|"+$/g, "");
 };
 
-export const createCart = async (
-  variantId: string,
-  quantity: number,
-  accessToken?: string
-) => {
-  const res = await API.post("/api/cart/create", {
-      variantId,
-      quantity,
-      accessToken,
-  });
+export const createCart = async ( variantId: string, quantity: number, accessToken?: string) => {
+  const res = await API.post("/api/cart/create", { variantId, quantity, accessToken, });
 
   const data = res?.data ?? {};
   const normalizedId =
@@ -46,12 +43,7 @@ export const createCart = async (
   return { id: null, ...data };
 };
 
-export const addToCart = async (
-  cartId: string,
-  variantId: string,
-  quantity: number,
-  accessToken?: string
-) => {
+export const addToCart = async ( cartId: string, variantId: string, quantity: number, accessToken?: string) => {
   return API.post("/api/cart/add", {
       cartId,
       variantId,
@@ -61,10 +53,7 @@ export const addToCart = async (
 };
 
 export const updateCartLine = async ( cartId: string, lineId: string, quantity: number, accessToken?: string ) => {
-    return API.put("/api/cart/update", {
-        cartId,
-        lineId: lineId,
-        quantity
+    return API.put("/api/cart/update", { cartId, lineId: lineId, quantity
     }, {
         params: { accessToken }
     });
@@ -93,11 +82,6 @@ export const buyProduct = async ( variantId: string, quantity: number, accessTok
 export const checkoutCart = async (cartId: string) => {
   return API.get(`/api/cart/checkout/${encodeURIComponent(cartId)}`);
 };
-
-export interface CartFetchResult {
-  items: CartItem[];
-  checkoutUrl?: string | null;
-}
 
 export const getUserCart = async (userId: string, accessToken?: string) => {
   try {
