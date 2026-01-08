@@ -5,30 +5,43 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
+import { getCustomerOrders, Order } from "../api/orders";
 
 // dimensions not used
 
-const STATIC_ORDERS = [
-    { id: '101', item: 'Nike Air Max', price: '$120.00', date: 'Jan 12, 2025', status: 'Delivered', color: '#10b981' },
-    { id: '102', item: 'Leather Jacket', price: '$250.00', date: 'Dec 28, 2024', status: 'In Transit', color: '#f59e0b' },
-    { id: '103', item: 'Smart Watch', price: '$199.00', date: 'Dec 15, 2024', status: 'Cancelled', color: '#ef4444' },
-];
-
 const MENU_ITEMS = [
     { id: 'orders', icon: 'shopping-bag', label: 'My Orders', subtitle: '' },
-    { id: 'payment', icon: 'credit-card', label: 'Payment Methods', subtitle: 'Visa **42' },
-    { id: 'notif', icon: 'notifications', label: 'Notifications', subtitle: 'On' },
-    { id: 'lang', icon: 'language', label: 'Language', subtitle: 'English' },
+    { id: 'payment', icon: 'credit-card', label: 'Payment Methods', subtitle: '' },
+    { id: 'notif', icon: 'notifications', label: 'Notifications', subtitle: '' },
+    { id: 'lang', icon: 'language', label: 'Language', subtitle: '' },
     { id: 'privacy', icon: 'lock', label: 'Privacy Policy', subtitle: '' },
 ];
+
+const getStatusColor = (status: string) => {
+  switch (status?.toUpperCase()) {
+    case 'FULFILLED':
+    case 'DELIVERED':
+      return '#10b981';
+    case 'IN_PROGRESS':
+    case 'OPEN':
+      return '#f59e0b';
+    case 'CANCELLED':
+      return '#ef4444';
+    case 'PAID':
+      return '#3b82f6';
+    default:
+      return '#6b7280';
+  }
+};
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { user, accessToken, logout } = useAuth();
-  const { setCartId } = useCart();
+  const { setCartId, cartCount } = useCart();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [formVisible, setFormVisible] = useState(false);
   const [editMode, setEditMode] = useState<null | string>(null);
   const [activeTab, setActiveTab] = useState<'details' | 'addresses'>('details'); // Tab state
@@ -70,6 +83,11 @@ export default function ProfileScreen() {
       return { ...a, isDefault: computed };
     });
     setAddresses(normalized);
+    try {
+      const ordRes = await getCustomerOrders(token);
+      const oData = Array.isArray(ordRes?.data) ? ordRes.data : [];
+      setOrders(oData);
+    } catch {}
   }, []);
 
   useEffect(() => {
@@ -288,41 +306,51 @@ export default function ProfileScreen() {
                     {/* Stats Row */}
                     <View style={styles.statsRow}>
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>12</Text>
+                            <Text style={styles.statValue}>{orders.length}</Text>
                             <Text style={styles.statLabel}>Orders</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>04</Text>
-                            <Text style={styles.statLabel}>Wishlist</Text>
+                            <Text style={styles.statValue}>{cartCount}</Text>
+                            <Text style={styles.statLabel}>Cart</Text>
                         </View>
                         <View style={styles.statDivider} />
                         <View style={styles.statItem}>
-                            <Text style={styles.statValue}>250</Text>
-                            <Text style={styles.statLabel}>Points</Text>
+                            <Text style={styles.statValue}>{addresses.length}</Text>
+                            <Text style={styles.statLabel}>Addresses</Text>
                         </View>
                     </View>
 
-                    {/* Recent Orders (Static) */}
+                    {/* Recent Orders */}
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Recent Orders</Text>
-                        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
+                        <TouchableOpacity onPress={() => navigation.navigate('OrderHistory')}>
+                            <Text style={styles.seeAllText}>See All</Text>
+                        </TouchableOpacity>
                     </View>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ordersScroll} contentContainerStyle={{paddingHorizontal: 20}}>
-                        {STATIC_ORDERS.map((order) => (
-                            <View key={order.id} style={styles.orderCard}>
+                        {(orders.slice(0, 5)).map((order) => {
+                            const color = getStatusColor(order.fulfillmentStatus || order.financialStatus);
+                            return (
+                            <View key={order.orderId} style={styles.orderCard}>
                                 <View style={styles.orderIcon}>
                                     <MaterialIcons name="shopping-bag" size={24} color="#3b82f6" />
                                 </View>
                                 <View style={styles.orderInfo}>
-                                    <Text style={styles.orderItem}>{order.item}</Text>
-                                    <Text style={styles.orderPrice}>{order.price}</Text>
-                                    <View style={[styles.statusBadge, { backgroundColor: order.color + '20' }]}>
-                                        <Text style={[styles.statusText, { color: order.color }]}>{order.status}</Text>
+                                    <Text style={styles.orderItem}>Order {order.orderName}</Text>
+                                    <Text style={styles.orderPrice}>{order.currency} {Number(order.totalAmount).toFixed(2)}</Text>
+                                    <View style={[styles.statusBadge, { backgroundColor: color + '20' }]}>
+                                        <Text style={[styles.statusText, { color }]}>{order.fulfillmentStatus || order.financialStatus}</Text>
                                     </View>
                                 </View>
                             </View>
-                        ))}
+                            );
+                        })}
+                        {orders.length === 0 ? (
+                            <View style={{ justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 }}>
+                                <Text style={{ color: '#6b7280' }}>No recent orders</Text>
+                            </View>
+                        ) : null}
                     </ScrollView>
 
                     {/* Menu Options */}
