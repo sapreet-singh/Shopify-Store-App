@@ -16,34 +16,20 @@ export interface AuthResponse {
   errors?: any;
 }
 
-export const registerCustomer = async ( email: string, password: string, 
-  firstName: string, lastName: string = "" ) => {
-  try { console.log("registerCustomer", { email, firstName, lastName }); } catch {}
-  return API.post("/api/storefront/customer/create", null, {
-    params: {
-      email,
-      password,
-      firstName,
-      lastName
-    }
-  });
-};
+export interface ChangePasswordRequest {
+  CustomerAccessToken: string;
+  NewPassword: string;
+}
 
-export const loginCustomer = async (email: string, password: string) => {
-  try { console.log("loginCustomer", { email }); } catch {}
-  return API.post("/api/storefront/customer/login", null, {
-    params: {
-      email,
-      password
-    }
-  });
-};
+export interface ChangePasswordResponse {
+  Success: boolean;
+  Email?: string;
+  Error?: string;
+}
 
-export const getCustomer = async (accessToken: string) => {
-    try { console.log("getCustomer", { accessToken }); } catch {}
-    return API.get("/api/storefront/customer", {
-        params: { accessToken }
-    });
+export interface ForgotPasswordResponse {
+  Success: boolean;
+  Error?: string;
 }
 
 export interface AddAddressRequest {
@@ -62,6 +48,36 @@ export interface UpdateAddressRequest extends AddAddressRequest {
 
 export interface SetDefaultAddressRequest {
   id: string;
+}
+
+export const registerCustomer = async ( email: string, password: string, 
+  firstName: string, lastName: string = "" ) => {
+  try { console.log("registerCustomer", { email, firstName, lastName }); } catch {}
+  return API.post("/api/auth/customer/create", null, {
+    params: {
+      email,
+      password,
+      firstName,
+      lastName
+    }
+  });
+};
+
+export const loginCustomer = async (email: string, password: string) => {
+  try { console.log("loginCustomer", { email }); } catch {}
+  return API.post("/api/auth/customer/login", null, {
+    params: {
+      email,
+      password
+    }
+  });
+};
+
+export const getCustomer = async (accessToken: string) => {
+    try { console.log("getCustomer", { accessToken }); } catch {}
+    return API.get("/api/storefront/customer", {
+        params: { accessToken }
+    });
 }
 
 export const getCustomerProfile = async (accessToken: string) => {
@@ -130,4 +146,18 @@ export const setDefaultAddress = async (request: SetDefaultAddressRequest) => {
     AddressId: request.id,
   };
   return API.put("/api/customer/address/default", payload);
+};
+
+export const forgotPassword = async (email: string) => {
+  try { console.log("forgotPassword", { email }); } catch {}
+  return API.post("/api/auth/forgot-password", email);
+};
+
+export const changePassword = async (customerAccessToken: string, newPassword: string) => {
+  try { console.log("changePassword"); } catch {}
+  const payload: ChangePasswordRequest = {
+    CustomerAccessToken: customerAccessToken,
+    NewPassword: newPassword,
+  };
+  return API.post("/api/auth/change-password", payload);
 };

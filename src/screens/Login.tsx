@@ -1,19 +1,7 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  Alert, 
-  StyleSheet, 
-  ActivityIndicator, 
-  KeyboardAvoidingView, 
-  Platform, 
-  ScrollView,
-  SafeAreaView
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Modal } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { loginCustomer, getCustomerProfile, Customer } from '../api/customer';
+import { loginCustomer, getCustomerProfile, Customer, forgotPassword } from '../api/customer';
 import { useAuth } from '../context/AuthContext';
 import { addToCart, createCart, getUserCart } from '../api/cart';
 import { useCart } from '../context/CartContext';
@@ -23,6 +11,9 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [forgotVisible, setForgotVisible] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
   
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -116,7 +107,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -159,7 +150,7 @@ export default function LoginScreen() {
               />
             </View>
             
-            <TouchableOpacity style={styles.forgotPassword}>
+            <TouchableOpacity style={styles.forgotPassword} onPress={() => setForgotVisible(true)}>
               <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
             </TouchableOpacity>
 
@@ -184,9 +175,77 @@ export default function LoginScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      
+      <Modal
+        visible={forgotVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setForgotVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Reset Password</Text>
+              <TouchableOpacity onPress={() => setForgotVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.inputContainer}>
+              <MaterialIcons name="email" size={20} color="#64748b" style={styles.inputIcon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Email Address"
+                placeholderTextColor="#94a3b8"
+                value={forgotEmail}
+                onChangeText={setForgotEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+              />
+            </View>
+            <TouchableOpacity 
+              style={styles.button}
+              onPress={() => handleForgotSubmit(forgotEmail, setForgotLoading, setForgotVisible)}
+              disabled={forgotLoading}
+            >
+              {forgotLoading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Send Reset Email</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </View>
   );
 }
+
+const handleForgotSubmit = async (
+  emailValue: string,
+  setLoadingFn: (v: boolean) => void,
+  setVisibleFn: (v: boolean) => void
+) => {
+  if (!emailValue) {
+    Alert.alert('Error', 'Please enter your email');
+    return;
+  }
+  setLoadingFn(true);
+  try {
+    const res = await forgotPassword(emailValue);
+    const ok = res?.data?.Success ?? true;
+    if (ok) {
+      Alert.alert('Success', 'Password reset email sent');
+      setVisibleFn(false);
+    } else {
+      const err = res?.data?.Error || 'Failed to send reset';
+      Alert.alert('Error', err);
+    }
+  } catch (e: any) {
+    Alert.alert('Error', e?.response?.data?.error || e?.message || 'Failed to send reset');
+  } finally {
+    setLoadingFn(false);
+  }
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -297,5 +356,27 @@ const styles = StyleSheet.create({
     color: '#2563eb',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
   },
 });

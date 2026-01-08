@@ -27,6 +27,16 @@ export interface Product {
     };
     products: Product[];
   }
+
+  export interface PredictiveSuggestion {
+    type: "product" | "query";
+    title: string;
+    handle?: string;
+    image?: { url: string };
+    price?: string;
+    product?: Product;
+    query?: string;
+  }
   
   const normalizeUrl = (u?: string) => {
     if (!u) return undefined;
@@ -84,7 +94,6 @@ export interface Product {
     return data.map(mapIncomingProduct);
   };
   
-  
   export const getProducts = async (): Promise<Product[]> => {
     const res = await API.get("/api/storefront/products/all");
   
@@ -102,16 +111,6 @@ export interface Product {
       images: p.images || []
     }));
   };
-
-  export interface PredictiveSuggestion {
-    type: "product" | "query";
-    title: string;
-    handle?: string;
-    image?: { url: string };
-    price?: string;
-    product?: Product;
-    query?: string;
-  }
 
   export const predictiveSearch = async (query: string): Promise<PredictiveSuggestion[]> => {
     if (!query || !query.trim()) return [];

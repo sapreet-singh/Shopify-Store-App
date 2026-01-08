@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { predictiveSearch, PredictiveSuggestion, getBestSellers, Product } from "../api/products";
@@ -145,8 +145,8 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
             keyExtractor={(item) => item.id}
             renderItem={renderBestSeller}
             numColumns={2}
-            columnWrapperStyle={{ justifyContent: "space-between" }}
-            contentContainerStyle={{ paddingVertical: 8 }}
+            columnWrapperStyle={styles.columnWrapper}
+            contentContainerStyle={styles.listContent}
             ListFooterComponent={
               <TouchableOpacity style={styles.viewAllBtn} onPress={() => onSubmitQuery(query || "")}>
                 <Text style={styles.viewAllText}>VIEW ALL</Text>
@@ -284,6 +284,12 @@ const styles = StyleSheet.create({
     color: "#10b981",
     marginTop: 2,
     fontWeight: "600",
+  },
+  columnWrapper: {
+    justifyContent: "space-between",
+  },
+  listContent: {
+    paddingVertical: 8,
   },
   viewAllBtn: {
     borderWidth: 1,

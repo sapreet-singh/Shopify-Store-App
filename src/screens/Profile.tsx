@@ -1,25 +1,11 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, Modal, StatusBar } from "react-native";
+import { View, Text, TouchableOpacity, ActivityIndicator, TextInput, Alert, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, ToastAndroid, Modal, StatusBar, BackHandler } from "react-native";
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
-import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest } from "../api/customer";
-
-// dimensions not used
-
-const STATIC_ORDERS = [
-    { id: '101', item: 'Nike Air Max', price: '$120.00', date: 'Jan 12, 2025', status: 'Delivered', color: '#10b981' },
-    { id: '102', item: 'Leather Jacket', price: '$250.00', date: 'Dec 28, 2024', status: 'In Transit', color: '#f59e0b' },
-    { id: '103', item: 'Smart Watch', price: '$199.00', date: 'Dec 15, 2024', status: 'Cancelled', color: '#ef4444' },
-];
-
-const MENU_ITEMS = [
-    { id: 'payment', icon: 'credit-card', label: 'Payment Methods', subtitle: 'Visa **42' },
-    { id: 'notif', icon: 'notifications', label: 'Notifications', subtitle: 'On' },
-    { id: 'lang', icon: 'language', label: 'Language', subtitle: 'English' },
-    { id: 'privacy', icon: 'lock', label: 'Privacy Policy', subtitle: '' },
-];
+import { getCustomerProfile, getCustomerAddresses, addAddress, updateAddress, deleteAddress, setDefaultAddress, AddAddressRequest, UpdateAddressRequest, changePassword } from "../api/customer"; 
+import CustomHeader from "../components/CustomHeader";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -40,6 +26,10 @@ export default function ProfileScreen() {
     zip: "",
     phone: "",
   });
+  
+  const [pwdVisible, setPwdVisible] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [pwdLoading, setPwdLoading] = useState(false);
 
   const notify = (msg: string) => {
     if (Platform.OS === "android") {
@@ -89,6 +79,19 @@ export default function ProfileScreen() {
         StatusBar.setBackgroundColor("#111827");
       };
     }, [])
+  );
+  useFocusEffect(
+    React.useCallback(() => {
+      const onBackPress = () => {
+        if (activeTab === 'addresses') {
+          setActiveTab('details');
+          return true;
+        }
+        return false;
+      };
+      const sub = BackHandler.addEventListener('hardwareBackPress', onBackPress);
+      return () => sub.remove();
+    }, [activeTab])
   );
 
   const handleLogout = async () => {
@@ -241,111 +244,95 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Top Banner Background */}
-      <View style={styles.topBanner}>
-          <View style={styles.topBannerContent}>
-              <View style={styles.avatarRow}>
-                  <View style={styles.avatarContainer}>
-                    <Text style={styles.avatarText}>{userInitial}</Text>
-                    <View style={styles.editBadge}>
-                        <MaterialIcons name="edit" size={12} color="#fff" />
-                    </View>
-                  </View>
-                  <View style={styles.userInfo}>
-                      <Text style={styles.nameText}>{displayName}</Text>
-                      <Text style={styles.emailText}>{profile?.email || user.email}</Text>
-                      <View style={styles.memberBadge}>
-                          <MaterialIcons name="stars" size={14} color="#fbbf24" />
-                          <Text style={styles.memberText}>Gold Member</Text>
-                      </View>
-                  </View>
-              </View>
-          </View>
-      </View>
-
+      <CustomHeader title="Account" showLogo />
       <View style={styles.contentContainer}>
-          {/* Tab Switcher */}
-          <View style={styles.tabContainer}>
-              <TouchableOpacity 
-                  style={[styles.tab, activeTab === 'details' && styles.activeTab]} 
-                  onPress={() => setActiveTab('details')}
-              >
-                  <Text style={[styles.tabText, activeTab === 'details' && styles.activeTabText]}>My Profile</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                  style={[styles.tab, activeTab === 'addresses' && styles.activeTab]} 
-                  onPress={() => setActiveTab('addresses')}
-              >
-                  <Text style={[styles.tabText, activeTab === 'addresses' && styles.activeTabText]}>Address Book</Text>
-              </TouchableOpacity>
-          </View>
-
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             
             {activeTab === 'details' ? (
                 <>
-                    {/* Stats Row */}
-                    <View style={styles.statsRow}>
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>12</Text>
-                            <Text style={styles.statLabel}>Orders</Text>
+                    <View style={styles.accountHeader}>
+                        <View style={styles.accountAvatar}>
+                            <Text style={styles.accountAvatarText}>{userInitial}</Text>
                         </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>04</Text>
-                            <Text style={styles.statLabel}>Wishlist</Text>
-                        </View>
-                        <View style={styles.statDivider} />
-                        <View style={styles.statItem}>
-                            <Text style={styles.statValue}>250</Text>
-                            <Text style={styles.statLabel}>Points</Text>
+                        <View>
+                            <Text style={styles.welcomeText}>Welcome {displayName},</Text>
+                            <Text style={styles.emailSubText}>{profile?.email || user.email}</Text>
                         </View>
                     </View>
 
-                    {/* Recent Orders (Static) */}
-                    <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Recent Orders</Text>
-                        <TouchableOpacity><Text style={styles.seeAllText}>See All</Text></TouchableOpacity>
-                    </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.ordersScroll} contentContainerStyle={{paddingHorizontal: 20}}>
-                        {STATIC_ORDERS.map((order) => (
-                            <View key={order.id} style={styles.orderCard}>
-                                <View style={styles.orderIcon}>
-                                    <MaterialIcons name="shopping-bag" size={24} color="#3b82f6" />
-                                </View>
-                                <View style={styles.orderInfo}>
-                                    <Text style={styles.orderItem}>{order.item}</Text>
-                                    <Text style={styles.orderPrice}>{order.price}</Text>
-                                    <View style={[styles.statusBadge, { backgroundColor: order.color + '20' }]}>
-                                        <Text style={[styles.statusText, { color: order.color }]}>{order.status}</Text>
-                                    </View>
-                                </View>
+                    <View style={styles.cardList}>
+                        <TouchableOpacity style={styles.cardRow} onPress={() => setActiveTab('addresses')}>
+                            <View style={styles.cardIcon}>
+                                <MaterialIcons name="contact-page" size={20} color="#111827" />
                             </View>
-                        ))}
-                    </ScrollView>
+                            <View style={styles.cardTextCol}>
+                                <Text style={styles.cardTitle}>Address Book</Text>
+                                <Text style={styles.cardSubtitle}>Manage your saved addresses</Text>
+                            </View>
+                            <MaterialIcons name="chevron-right" size={22} color="#9ca3af" />
+                        </TouchableOpacity>
 
-                    {/* Menu Options */}
-                    <View style={styles.menuList}>
-                        {MENU_ITEMS.map((item) => (
-                            <TouchableOpacity key={item.id} style={styles.menuRow}>
-                                <View style={[styles.menuIconContainer, { backgroundColor: '#f3f4f6' }]}>
-                                    <MaterialIcons name={item.icon} size={20} color="#4b5563" />
-                                </View>
-                                <View style={styles.menuTextContainer}>
-                                    <Text style={styles.menuRowLabel}>{item.label}</Text>
-                                    {item.subtitle ? <Text style={styles.menuRowSubtitle}>{item.subtitle}</Text> : null}
-                                </View>
-                                <MaterialIcons name="chevron-right" size={24} color="#9ca3af" />
-                            </TouchableOpacity>
-                        ))}
+                        <TouchableOpacity style={styles.cardRow} onPress={() => navigation.navigate('OrderHistory')}>
+                            <View style={styles.cardIcon}>
+                                <MaterialIcons name="history" size={20} color="#111827" />
+                            </View>
+                            <View style={styles.cardTextCol}>
+                                <Text style={styles.cardTitle}>Order History</Text>
+                                <Text style={styles.cardSubtitle}>View your past orders</Text>
+                            </View>
+                            <MaterialIcons name="chevron-right" size={22} color="#9ca3af" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.cardRow} onPress={() => setPwdVisible(true)}>
+                            <View style={styles.cardIcon}>
+                                <MaterialIcons name="lock" size={20} color="#111827" />
+                            </View>
+                            <View style={styles.cardTextCol}>
+                                <Text style={styles.cardTitle}>Change Password</Text>
+                                <Text style={styles.cardSubtitle}>Edit your password</Text>
+                            </View>
+                            <MaterialIcons name="chevron-right" size={22} color="#9ca3af" />
+                        </TouchableOpacity>
                     </View>
+
+                    <View style={styles.listSection}>
+                        <TouchableOpacity style={styles.listRow} onPress={() => navigation.navigate('OrderHistory')}>
+                            <Text style={styles.listLabel}>Track Order</Text>
+                        </TouchableOpacity>
+                        <View style={styles.listDivider} />
+                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Privacy Policy", "Coming soon")}>
+                            <Text style={styles.listLabel}>Privacy Policy</Text>
+                        </TouchableOpacity>
+                        <View style={styles.listDivider} />
+                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Terms of Service", "Coming soon")}>
+                            <Text style={styles.listLabel}>Terms of Service</Text>
+                        </TouchableOpacity>
+                        <View style={styles.listDivider} />
+                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Shipping Policy", "Coming soon")}>
+                            <Text style={styles.listLabel}>Shipping Policy</Text>
+                        </TouchableOpacity>
+                        <View style={styles.listDivider} />
+                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Contact Us", "Coming soon")}>
+                            <Text style={styles.listLabel}>Contact Us</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    <TouchableOpacity style={styles.logoutOutlined} onPress={handleLogout}>
+                        <MaterialIcons name="logout" size={18} color="#b91c1c" />
+                        <Text style={styles.logoutOutlinedText}>Logout</Text>
+                    </TouchableOpacity>
                 </>
             ) : (
                 /* Addresses Section */
                 <View style={styles.addressSection}>
+                    <View style={styles.addrHeader}>
+                        <TouchableOpacity onPress={() => setActiveTab('details')} style={styles.backBtnSmall}>
+                            <MaterialIcons name="arrow-back" size={22} color="#111827" />
+                        </TouchableOpacity>
+                        <Text style={styles.addrHeaderTitle}>Manage delivery address</Text>
+                    </View>
                     <TouchableOpacity style={styles.addNewBtn} onPress={openAddForm}>
-                        <MaterialIcons name="add-circle" size={24} color="#2563eb" />
-                        <Text style={styles.addNewText}>Add New Address</Text>
+                        <Text style={styles.addNewText}>Add a new address</Text>
                     </TouchableOpacity>
 
                     {loading && addresses.length === 0 ? (
@@ -405,12 +392,9 @@ export default function ProfileScreen() {
                         })
                     )}
                 </View>
+
             )}
 
-            <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-                <Text style={styles.logoutBtnText}>Log Out</Text>
-            </TouchableOpacity>
-            
             <View style={{height: 40}} /> 
           </ScrollView>
       </View>
@@ -479,13 +463,75 @@ export default function ProfileScreen() {
             </View>
         </KeyboardAvoidingView>
       </Modal>
+      
+      <Modal
+        visible={pwdVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setPwdVisible(false)}
+      >
+        <KeyboardAvoidingView 
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
+            style={styles.modalOverlay}
+        >
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Change Password</Text>
+                    <TouchableOpacity onPress={() => setPwdVisible(false)}>
+                        <MaterialIcons name="close" size={24} color="#6b7280" />
+                    </TouchableOpacity>
+                </View>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>New Password</Text>
+                  <TextInput 
+                    placeholder="Enter new password" 
+                    style={styles.input} 
+                    secureTextEntry 
+                    value={newPassword} 
+                    onChangeText={setNewPassword} 
+                  />
+                </View>
+                <TouchableOpacity 
+                  style={styles.saveBtn} 
+                  onPress={async () => {
+                    if (!accessToken) return;
+                    if (!newPassword) {
+                      Alert.alert("Error", "Please enter new password");
+                      return;
+                    }
+                    try {
+                      setPwdLoading(true);
+                      const res = await changePassword(accessToken, newPassword);
+                      const ok = res?.data?.Success ?? true;
+                      if (ok) {
+                        notify("Password changed successfully");
+                        setPwdVisible(false);
+                        setNewPassword("");
+                      } else {
+                        const err = res?.data?.Error || "Failed to change password";
+                        Alert.alert("Error", err);
+                      }
+                    } catch (e: any) {
+                      const msg = e?.response?.data?.error || e?.message || "Failed to change password";
+                      Alert.alert("Error", msg);
+                    } finally {
+                      setPwdLoading(false);
+                    }
+                  }}
+                  disabled={pwdLoading}
+                >
+                  {pwdLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Update Password</Text>}
+                </TouchableOpacity>
+            </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#1e3a8a" }, // Dark blue background for top part
+  container: { flex: 1, backgroundColor: "#fff" },
   
   // Auth Screen Styles
   centerContainer: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, backgroundColor: '#fff' },
@@ -496,87 +542,58 @@ const styles = StyleSheet.create({
   primaryBtnText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
   secondaryBtn: { backgroundColor: "#fff", width: '100%', paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#e5e7eb' },
   secondaryBtnText: { color: "#374151", fontWeight: "600", fontSize: 16 },
-
-  // Top Banner
-  topBanner: { height: 220, justifyContent: 'center', paddingHorizontal: 20 },
-  topBannerContent: { flexDirection: 'row', alignItems: 'center' },
-  avatarRow: { flexDirection: 'row', alignItems: 'center' },
-  avatarContainer: { position: 'relative', width: 80, height: 80, borderRadius: 40, backgroundColor: '#3b82f6', justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: '#60a5fa' },
-  avatarText: { fontSize: 32, fontWeight: 'bold', color: '#fff' },
-  editBadge: { position: 'absolute', bottom: 0, right: 0, backgroundColor: '#2563eb', width: 24, height: 24, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#fff' },
-  userInfo: { marginLeft: 16 },
-  nameText: { fontSize: 24, fontWeight: "bold", color: '#fff' },
-  emailText: { fontSize: 14, color: "#bfdbfe", marginBottom: 4 },
-  memberBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, alignSelf: 'flex-start' },
-  memberText: { color: '#fbbf24', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
-
+  
   // Content Container (White part)
-  contentContainer: { flex: 1, backgroundColor: '#f3f4f6', borderTopLeftRadius: 30, borderTopRightRadius: 30, overflow: 'hidden' },
-  scrollContent: { paddingBottom: 20 },
+  contentContainer: { flex: 1, backgroundColor: '#f9fafb' },
+  scrollContent: { paddingBottom: 24 },
 
-  // Tabs
-  tabContainer: { flexDirection: 'row', backgroundColor: '#fff', paddingVertical: 4, paddingHorizontal: 4, marginHorizontal: 20, marginTop: 20, borderRadius: 12, marginBottom: 10, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
-  tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  activeTab: { backgroundColor: '#eff6ff' },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#6b7280' },
-  activeTabText: { color: '#2563eb' },
+  accountHeader: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 12, padding: 16, marginTop: 12, marginBottom: 12, borderWidth: 1, borderColor: '#e5e7eb' },
+  accountAvatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: '#111827', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  accountAvatarText: { color: '#fff', fontSize: 20, fontWeight: '700' },
+  welcomeText: { fontSize: 16, fontWeight: '700', color: '#111827' },
+  emailSubText: { fontSize: 12, color: '#6b7280', marginTop: 2 },
 
-  // Stats Row
-  statsRow: { flexDirection: 'row', backgroundColor: '#fff', marginHorizontal: 20, borderRadius: 16, padding: 20, marginBottom: 20, justifyContent: 'space-between', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 3 },
-  statItem: { alignItems: 'center', flex: 1 },
-  statValue: { fontSize: 20, fontWeight: 'bold', color: '#111827' },
-  statLabel: { fontSize: 12, color: '#6b7280', marginTop: 2 },
-  statDivider: { width: 1, height: 30, backgroundColor: '#e5e7eb' },
+  cardList: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 12, paddingVertical: 4, borderWidth: 1, borderColor: '#e5e7eb' },
+  cardRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
+  cardIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  cardTextCol: { flex: 1 },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: '#1f2937' },
+  cardSubtitle: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
 
-  // Sections
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, marginBottom: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-  seeAllText: { fontSize: 14, color: '#2563eb', fontWeight: '600' },
+  listSection: { backgroundColor: '#fff', marginHorizontal: 16, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 4, marginTop: 16, borderWidth: 1, borderColor: '#e5e7eb' },
+  listRow: { paddingVertical: 14 },
+  listLabel: { fontSize: 15, color: '#1f2937', fontWeight: '500' },
+  listDivider: { height: 1, backgroundColor: '#f3f4f6' },
 
-  // Orders
-  ordersScroll: { marginBottom: 24 },
-  orderCard: { backgroundColor: '#fff', width: 200, padding: 12, borderRadius: 12, marginRight: 12, flexDirection: 'row', alignItems: 'center', shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2 },
-  orderIcon: { width: 48, height: 48, borderRadius: 8, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  orderInfo: { flex: 1 },
-  orderItem: { fontSize: 14, fontWeight: '600', color: '#1f2937', marginBottom: 2 },
-  orderPrice: { fontSize: 12, color: '#6b7280', marginBottom: 4 },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
-  statusText: { fontSize: 10, fontWeight: '700' },
-
-  // Menu List
-  menuList: { backgroundColor: '#fff', marginHorizontal: 20, borderRadius: 16, paddingVertical: 8, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2, marginBottom: 20 },
-  menuRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#f3f4f6' },
-  menuIconContainer: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  menuTextContainer: { flex: 1 },
-  menuRowLabel: { fontSize: 15, fontWeight: '500', color: '#1f2937' },
-  menuRowSubtitle: { fontSize: 12, color: '#9ca3af' },
+  logoutOutlined: { marginHorizontal: 16, marginTop: 16, borderWidth: 1, borderColor: '#ef4444', borderRadius: 12, paddingVertical: 14, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 8, backgroundColor: '#fff' },
+  logoutOutlinedText: { color: '#b91c1c', fontWeight: '700', fontSize: 16 },
 
   // Address Section Styles
-  addressSection: { paddingHorizontal: 20 },
-  addNewBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#eff6ff', paddingVertical: 14, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe', borderStyle: 'dashed', marginBottom: 20 },
-  addNewText: { marginLeft: 8, color: '#2563eb', fontWeight: '600', fontSize: 15 },
+  addressSection: { paddingHorizontal: 16 },
+  addrHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
+  backBtnSmall: { paddingVertical: 6, paddingRight: 6 },
+  backTextSmall: { fontSize: 14, color: '#111827', fontWeight: '600' },
+  addrHeaderTitle: { fontSize: 16, color: '#111827', fontWeight: '700' },
+  addNewBtn: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', paddingVertical: 12, borderRadius: 8, borderWidth: 1, borderColor: '#1f2937', marginBottom: 16 },
+  addNewText: { color: '#1f2937', fontWeight: '600', fontSize: 14 },
   emptyState: { alignItems: 'center', paddingVertical: 40 },
   emptyText: { marginTop: 12, color: '#9ca3af', fontSize: 16 },
-  addressCard: { backgroundColor: "#fff", borderRadius: 16, padding: 16, marginBottom: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  addressCard: { backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: '#e5e7eb' },
   addressHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  addressIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  addressType: { fontSize: 16, fontWeight: '600', color: '#1f2937' },
+  addressIcon: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#f3f4f6', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  addressType: { fontSize: 15, fontWeight: '700', color: '#1f2937' },
   defaultBadge: { backgroundColor: '#fffbeb', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, borderWidth: 1, borderColor: '#fcd34d' },
   defaultBadgeText: { fontSize: 10, fontWeight: 'bold', color: '#d97706' },
   addressBody: { marginBottom: 16 },
   addrLine: { fontSize: 14, color: '#4b5563', lineHeight: 20 },
   divider: { height: 1, backgroundColor: '#f3f4f6', marginBottom: 12 },
-  cardActions: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
-  actionBtn: { paddingVertical: 6, paddingHorizontal: 12 },
+  cardActions: { flexDirection: 'row', justifyContent: 'flex-start', alignItems: 'center' },
+  actionBtn: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: '#1f2937', borderRadius: 6 },
   verticalDivider: { width: 1, height: 16, backgroundColor: '#e5e7eb' },
   actionText: { fontSize: 14, fontWeight: '500' },
-  actionTextPrimary: { color: '#2563eb', fontWeight: '600' },
-  actionTextDanger: { color: '#ef4444', fontWeight: '600' },
+  actionTextPrimary: { color: '#1f2937', fontWeight: '600' },
+  actionTextDanger: { color: '#1f2937', fontWeight: '600' },
   actionTextSuccess: { color: '#059669', fontWeight: '600' },
-
-  // Logout
-  logoutBtn: { marginHorizontal: 20, backgroundColor: '#fee2e2', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginBottom: 20 },
-  logoutBtnText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
