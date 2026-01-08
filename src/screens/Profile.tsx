@@ -72,14 +72,19 @@ export default function ProfileScreen() {
 
   useFocusEffect(
     React.useCallback(() => {
-      StatusBar.setBarStyle("light-content");
-      StatusBar.setBackgroundColor("#111827");
-      return () => {
-        StatusBar.setBarStyle("dark-content");
-        StatusBar.setBackgroundColor("#111827");
-      };
-    }, [])
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#f3f4f6");
+      }, [])
   );
+  useEffect(() => {
+    if (activeTab === 'addresses') {
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#f3f4f6");
+    } else {
+      StatusBar.setBarStyle("dark-content");
+      StatusBar.setBackgroundColor("#f3f4f6");
+    }
+  }, [activeTab]);
   useFocusEffect(
     React.useCallback(() => {
       const onBackPress = () => {
@@ -241,6 +246,20 @@ export default function ProfileScreen() {
 
   const displayName = profile?.displayName || `${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() || user.email?.split('@')[0];
   const userInitial = displayName ? displayName.charAt(0).toUpperCase() : "U";
+  const listItems = [
+    { label: "Track Order", type: "navigate", route: "OrderHistory" },
+    { label: "Privacy Policy", type: "navigate", route: "PrivacyPolicy" },
+    { label: "Terms of Service", type: "navigate", route: "TermsOfService" },
+    { label: "Shipping Policy", type: "navigate", route: "ShippingPolicy" },
+    { label: "Contact Us", type: "navigate", route: "ContactUs" },
+  ];
+  const handleListItemPress = (item: any) => {
+    if (item.type === "navigate" && item.route) {
+      navigation.navigate(item.route, item.params || {});
+      return;
+    }
+    Alert.alert(item.title, item.message);
+  };
 
   return (
     <View style={styles.container}>
@@ -296,25 +315,14 @@ export default function ProfileScreen() {
                     </View>
 
                     <View style={styles.listSection}>
-                        <TouchableOpacity style={styles.listRow} onPress={() => navigation.navigate('OrderHistory')}>
-                            <Text style={styles.listLabel}>Track Order</Text>
-                        </TouchableOpacity>
-                        <View style={styles.listDivider} />
-                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Privacy Policy", "Coming soon")}>
-                            <Text style={styles.listLabel}>Privacy Policy</Text>
-                        </TouchableOpacity>
-                        <View style={styles.listDivider} />
-                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Terms of Service", "Coming soon")}>
-                            <Text style={styles.listLabel}>Terms of Service</Text>
-                        </TouchableOpacity>
-                        <View style={styles.listDivider} />
-                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Shipping Policy", "Coming soon")}>
-                            <Text style={styles.listLabel}>Shipping Policy</Text>
-                        </TouchableOpacity>
-                        <View style={styles.listDivider} />
-                        <TouchableOpacity style={styles.listRow} onPress={() => Alert.alert("Contact Us", "Coming soon")}>
-                            <Text style={styles.listLabel}>Contact Us</Text>
-                        </TouchableOpacity>
+                        {listItems.map((item, idx) => (
+                          <View key={item.label}>
+                            <TouchableOpacity style={styles.listRow} onPress={() => handleListItemPress(item)}>
+                              <Text style={styles.listLabel}>{item.label}</Text>
+                            </TouchableOpacity>
+                            {idx < listItems.length - 1 && <View style={styles.listDivider} />}
+                          </View>
+                        ))}
                     </View>
 
                     <TouchableOpacity style={styles.logoutOutlined} onPress={handleLogout}>

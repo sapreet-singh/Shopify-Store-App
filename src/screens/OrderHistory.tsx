@@ -52,10 +52,6 @@ export default function OrderHistoryScreen() {
     React.useCallback(() => {
       StatusBar.setBarStyle("dark-content");
       StatusBar.setBackgroundColor("#f3f4f6");
-      return () => {
-        StatusBar.setBarStyle("light-content");
-        StatusBar.setBackgroundColor("#111827");
-      };
     }, [])
   );
 
