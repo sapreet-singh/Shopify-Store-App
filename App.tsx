@@ -52,7 +52,7 @@ function AppTabs() {
       <Tab.Screen
         name="Collections"
         component={ProductsStack}
-        initialParams={{ initialRouteName: "Collections" }}
+        initialParams={{ initialRouteName: "CollectionsScreen" }}
       />
       <Tab.Screen
         name="Cart"

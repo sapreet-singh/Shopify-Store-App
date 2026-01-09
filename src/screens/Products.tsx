@@ -219,7 +219,10 @@ export default function ProductsScreen({ navigation, route }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.categoryHeader}>
-        <TouchableOpacity onPress={() => navigation.navigate("Home")} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack?.() ? navigation.goBack() : navigation.navigate("Home"))}
+          style={styles.backBtn}
+        >
           <MaterialIcons name="arrow-back" size={20} color="#111827" />
           <Text style={styles.backText}>Collections</Text>
         </TouchableOpacity>

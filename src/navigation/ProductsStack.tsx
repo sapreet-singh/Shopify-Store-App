@@ -26,7 +26,7 @@ export default function ProductsStack({ route }: any) {
         }}
       />
       <Stack.Screen
-        name="Collections"
+        name="CollectionsScreen"
         component={CollectionsScreen}
         options={{
           headerShown: false,
