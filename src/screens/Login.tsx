@@ -31,37 +31,58 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const res = await loginCustomer(email, password);
-      const { accessToken } = res.data;
+      const { accessToken, customer } = res.data;
       
       if (accessToken) {
-        let customerData: Customer = { email: email, displayName: email.split('@')[0], id: 'unknown' };
-        try {
-          const prof = await getCustomerProfile(accessToken);
-          const data = prof?.data || {};
-          const customer = data.customer || (data?.data && data?.data.customer) || data;
-          customerData = {
-            id: customer?.id || customerData.id,
-            displayName: customer?.displayName || `${customer?.firstName || ''} ${customer?.lastName || ''}`.trim() || customerData.displayName,
-            email: customer?.email || customerData.email,
-            firstName: customer?.firstName,
-            lastName: customer?.lastName
-          };
-        } catch {}
-        await login(customerData as any, accessToken);
-
-        // Fetch user's existing cart
-        if (customerData.id && customerData.id !== 'unknown') {
-          try {
-             const userCart = await getUserCart(customerData.id, accessToken);
-             if (userCart && userCart.cartID) {
-                console.log("Restoring user cart:", userCart.cartID);
-                await setCartId(userCart.cartID);
-                await refreshCart(userCart.cartID);
-             }
-          } catch (e) {
-             console.log("Failed to load user cart", e);
-          }
+        let customerData: Customer = { 
+          email: email, 
+          displayName: email.split('@')[0], 
+          id: customer?.id || 'unknown' 
+        };
+        
+        const promises: Promise<any>[] = [getCustomerProfile(accessToken)];
+        if (customerData.id !== 'unknown') {
+          promises.push(getUserCart(customerData.id, accessToken));
         }
+
+        try {
+          const results = await Promise.all(promises);
+          const profRes = results[0];
+          const userCart = results[1];
+
+          const data = profRes?.data || {};
+          const fetchedCustomer = data.customer || (data?.data && data?.data.customer) || data;
+          
+          customerData = {
+            ...customerData,
+            id: fetchedCustomer?.id || customerData.id,
+            displayName: fetchedCustomer?.displayName || `${fetchedCustomer?.firstName || ''} ${fetchedCustomer?.lastName || ''}`.trim() || customerData.displayName,
+            email: fetchedCustomer?.email || customerData.email,
+            firstName: fetchedCustomer?.firstName,
+            lastName: fetchedCustomer?.lastName
+          };
+
+          if (userCart && userCart.cartID) {
+            console.log("Restoring user cart (parallel):", userCart.cartID);
+            await setCartId(userCart.cartID);
+            await refreshCart(userCart.cartID);
+          } else if (!userCart && customerData.id !== 'unknown') {
+            try {
+              const lateCart = await getUserCart(customerData.id, accessToken);
+              if (lateCart && lateCart.cartID) {
+                console.log("Restoring user cart (sequential):", lateCart.cartID);
+                await setCartId(lateCart.cartID);
+                await refreshCart(lateCart.cartID);
+              }
+            } catch (e) {
+              console.log("Failed to load user cart (sequential)", e);
+            }
+          }
+        } catch (e) {
+          console.log("Error during login data fetch", e);
+        }
+        
+        await login(customerData as any, accessToken);
         
         if (pendingItem) {
            await handlePendingItem(accessToken);

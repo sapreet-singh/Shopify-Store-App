@@ -157,11 +157,34 @@ export const getProducts = async (): Promise<Product[]> => {
     }
   };
 
+  // Simple in-memory cache
+  const cache: {
+    bestSellers: Product[] | null;
+    newArrivals: Product[] | null;
+    timestamp: number;
+  } = {
+    bestSellers: null,
+    newArrivals: null,
+    timestamp: 0,
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   export const getBestSellers = async (): Promise<Product[]> => {
+    const now = Date.now();
+    if (cache.bestSellers && (now - cache.timestamp < CACHE_DURATION)) {
+      return cache.bestSellers;
+    }
+
     try {
       const res = await API.get("/api/products/best-sellers");
       const data = Array.isArray(res.data) ? res.data : [];
-      return data.map(mapIncomingProduct);
+      const mapped = data.map(mapIncomingProduct);
+      
+      // Update Cache
+      cache.bestSellers = mapped;
+      cache.timestamp = now;
+      
+      return mapped;
     } catch {
       const all = await getProducts();
       const sorted = [...all].sort((a, b) => {
@@ -169,17 +192,41 @@ export const getProducts = async (): Promise<Product[]> => {
         const bv = (b.images?.length || 0) + (b.availableForSale ? 1 : 0);
         return bv - av;
       });
-      return sorted.slice(0, 8);
+      const fallback = sorted.slice(0, 8);
+      
+      // Update Cache
+      cache.bestSellers = fallback;
+      cache.timestamp = now;
+      
+      return fallback;
     }
   };
 
   export const getNewArrivals = async (): Promise<Product[]> => {
+    const now = Date.now();
+    if (cache.newArrivals && (now - cache.timestamp < CACHE_DURATION)) {
+      return cache.newArrivals;
+    }
+
     try {
       const res = await API.get("/api/products/new-arrivals");
       const data = Array.isArray(res.data) ? res.data : [];
-      return data.map(mapIncomingProduct);
+      const mapped = data.map(mapIncomingProduct);
+
+      // Update Cache
+      cache.newArrivals = mapped;
+      cache.timestamp = now;
+
+      return mapped;
     } catch {
       const all = await getProducts();
-      return all.slice(0, 8);
+      const fallback = all.slice(0, 8);
+      
+      // Update Cache
+      cache.newArrivals = fallback;
+      cache.timestamp = now;
+
+      return fallback;
     }
   };
+

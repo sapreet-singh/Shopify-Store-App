@@ -16,7 +16,8 @@ const { width } = Dimensions.get("window");
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isFav, setIsFav] = useState(false);
     const { accessToken, user } = useAuth();
-    const { refreshCart, cartId, setCartId } = useCart();
+    // @ts-ignore
+    const { refreshCart, cartId, setCartId, addItemOptimistic, revertOptimisticUpdate, cart } = useCart();
   
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
@@ -42,11 +43,12 @@ const { width } = Dimensions.get("window");
           return;
       }
   
-      setLoading(true);
+      // setLoading(true); // Don't block UI for existing cart additions
       try {
         const token = accessToken || undefined;
         
         if (!cartId) {
+          setLoading(true); // Still block for creation as it is complex
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
               await setCartId(res.id);
@@ -58,10 +60,31 @@ const { width } = Dimensions.get("window");
               return;
           }
         } else {
-          await addToCart(cartId, product.variantId, quantity, token);
-          await refreshCart();
+          // Optimistic Add
+          const prevCart = [...cart];
+          addItemOptimistic({
+             id: `temp-${Date.now()}`,
+             productName: product.title,
+             qty: quantity,
+             price: parseFloat(product.price),
+             image: product.featuredImage?.url || product.images?.[0]?.url,
+             variantId: product.variantId,
+             variantTitle: product.variantTitle
+          });
+
+          // Show Success immediately (or navigate)
           Alert.alert("Success", "Item added to cart!");
-          navigation.navigate("Cart");
+          // navigation.navigate("Cart"); // Optional: Navigate immediately
+
+          // Background sync
+          try {
+             await addToCart(cartId, product.variantId, quantity, token);
+             // await refreshCart(); // Trust optimistic
+          } catch(e) {
+             console.error("Background add failed", e);
+             revertOptimisticUpdate(prevCart);
+             Alert.alert("Error", "Failed to add to cart (Network Error)");
+          }
         }
       } catch (error) {
         console.error("Add to cart failed", error);
