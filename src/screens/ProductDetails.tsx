@@ -1,9 +1,11 @@
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { addToCart, buyProduct, createCart } from "../api/cart";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
 
 const { width } = Dimensions.get("window");
   
@@ -13,7 +15,7 @@ const { width } = Dimensions.get("window");
     const [loading, setLoading] = useState(false);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isFav, setIsFav] = useState(false);
-    const { accessToken } = useAuth();
+    const { accessToken, user } = useAuth();
     const { refreshCart, cartId, setCartId } = useCart();
   
     const increaseQty = () => setQuantity(q => q + 1);
@@ -93,6 +95,63 @@ const { width } = Dimensions.get("window");
   
     const images = product?.images?.length ? product.images : (product.featuredImage ? [product.featuredImage] : []);
     const isOutOfStock = !product.availableForSale || product.quantityAvailable === 0;
+
+    const refreshIsFav = useCallback(async () => {
+      if (!user?.id) return;
+      try {
+        const res = await getWishlist(user.id);
+        const items = normalizeWishlistItems(res?.data);
+        const ids = new Set<string>();
+        for (const it of items) {
+          const pid = String(it?.ProductId ?? it?.productId ?? it?.productID ?? it?.id ?? "").trim();
+          for (const k of buildProductIdKeys(pid)) {
+            ids.add(k);
+          }
+        }
+        const productKeys = buildProductIdKeys(product.id);
+        setIsFav(productKeys.some((k) => ids.has(k)));
+      } catch {}
+    }, [product.id, user?.id]);
+
+    useEffect(() => {
+      refreshIsFav();
+    }, [refreshIsFav]);
+
+    useFocusEffect(
+      useCallback(() => {
+        refreshIsFav();
+      }, [refreshIsFav])
+    );
+
+    const handleToggleWishlist = async () => {
+      if (!accessToken || !user?.id) {
+        Alert.alert("Login Required", "You need to login to use wishlist.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Login", onPress: () => navigation.navigate("Login") },
+        ]);
+        return;
+      }
+
+      const nextValue = !isFav;
+      setIsFav(nextValue);
+
+      const dto = {
+        CustomerId: user.id,
+        ProductId: product.id,
+        VariantId: product.variantId,
+      };
+
+      try {
+        if (nextValue) {
+          await addToWishlist(dto);
+        } else {
+          await removeFromWishlist(dto);
+        }
+      } catch {
+        setIsFav(!nextValue);
+        Alert.alert("Error", "Wishlist update failed. Please try again.");
+      }
+    };
   
     const renderImageItem = ({ item }: { item: { url: string } }) => (
       <View style={styles.carouselItem}>
@@ -120,7 +179,7 @@ const { width } = Dimensions.get("window");
                   <Text style={styles.stockPillText}>{isOutOfStock ? "Out of stock" : "In stock"}</Text>
                 </View>
                 <View style={styles.actionIcons}>
-                  <TouchableOpacity style={styles.roundIcon} onPress={() => setIsFav(!isFav)}>
+                  <TouchableOpacity style={styles.roundIcon} onPress={handleToggleWishlist}>
                     <MaterialIcons name={isFav ? "favorite" : "favorite-outline"} size={20} color={isFav ? "#ef4444" : "#111827"} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.roundIcon} onPress={() => {}}>

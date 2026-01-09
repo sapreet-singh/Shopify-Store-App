@@ -1,10 +1,12 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { getBestSellers, getNewArrivals, Product, ProductCollection } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
+import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
 import { scale } from "react-native-size-matters";
 import { ProductCardSkeleton } from "../components/Skeletons";
 
@@ -17,7 +19,7 @@ export default function ProductsScreen({ navigation, route }: any) {
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
   const listType = route?.params?.listType;
 
@@ -80,8 +82,67 @@ export default function ProductsScreen({ navigation, route }: any) {
     setFilteredProducts(products);
   }, [products]);
 
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
+  const refreshWishlistFlags = useCallback(async () => {
+    if (!user?.id) return;
+    try {
+      const res = await getWishlist(user.id);
+      const items = normalizeWishlistItems(res?.data);
+      const ids = new Set<string>();
+      for (const it of items) {
+        const pid = String(it?.ProductId ?? it?.productId ?? it?.productID ?? it?.id ?? "").trim();
+        for (const k of buildProductIdKeys(pid)) {
+          ids.add(k);
+        }
+      }
+      setFavorites((prev) => {
+        const next = { ...prev };
+        for (const p of products) {
+          const keys = buildProductIdKeys(p.id);
+          next[p.id] = keys.some((k) => ids.has(k));
+        }
+        return next;
+      });
+    } catch {}
+  }, [products, user?.id]);
+
+  useEffect(() => {
+    refreshWishlistFlags();
+  }, [refreshWishlistFlags]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshWishlistFlags();
+    }, [refreshWishlistFlags])
+  );
+
+  const toggleFavorite = async (item: Product) => {
+    if (!accessToken || !user?.id) {
+      Alert.alert("Login Required", "You need to login to use wishlist.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => navigation.navigate("Login") },
+      ]);
+      return;
+    }
+
+    const nextValue = !favorites[item.id];
+    setFavorites((prev) => ({ ...prev, [item.id]: nextValue }));
+
+    const dto = {
+      CustomerId: user.id,
+      ProductId: item.id,
+      VariantId: item.variantId,
+    };
+
+    try {
+      if (nextValue) {
+        await addToWishlist(dto);
+      } else {
+        await removeFromWishlist(dto);
+      }
+    } catch {
+      setFavorites((prev) => ({ ...prev, [item.id]: !nextValue }));
+      Alert.alert("Error", "Wishlist update failed. Please try again.");
+    }
   };
 
   const handleQuickAddToCart = async (item: Product) => {
@@ -150,7 +211,7 @@ export default function ProductsScreen({ navigation, route }: any) {
           )}
             <View style={styles.topActions}>
               <TouchableOpacity
-                onPress={() => toggleFavorite(item.id)}
+                onPress={() => toggleFavorite(item)}
                 style={[styles.iconBtn, favorites[item.id] ? styles.iconBtnHighlight : null]}
               >
                 <MaterialIcons

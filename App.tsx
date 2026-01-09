@@ -13,6 +13,7 @@ import { useCart } from "./src/context/CartContext";
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
 import ProfileStack from "./src/navigation/ProfileStack";
+import WishlistScreen from "./src/screens/Wishlist";
 import CustomHeader from "./src/components/CustomHeader";
 import { StatusBar } from "react-native";
 
@@ -39,6 +40,8 @@ function AppTabs() {
             iconName = "store";
           } else if (route.name === "Collections") {
             iconName = "grid-view";
+          } else if (route.name === "Wishlist") {
+            iconName = focused ? "favorite" : "favorite-outline";
           } else if (route.name === "Cart") {
             iconName = "shopping-cart";
           } else if (route.name === "Profile") {
@@ -53,6 +56,11 @@ function AppTabs() {
         name="Collections"
         component={ProductsStack}
         initialParams={{ initialRouteName: "CollectionsScreen" }}
+      />
+      <Tab.Screen
+        name="Wishlist"
+        component={WishlistScreen}
+        options={{ headerShown: false }}
       />
       <Tab.Screen
         name="Cart"

@@ -94,23 +94,19 @@ export interface Product {
     return data.map(mapIncomingProduct);
   };
   
-  export const getProducts = async (): Promise<Product[]> => {
-    const res = await API.get("/api/storefront/products/all");
-  
-    return res.data.map((p: any) => ({
-      id: p.id,
-      variantId: p.variantId,
-      variantTitle: p.variantTitle,
-      title: p.title,
-      handle: p.handle,
-      price: p.price,
-      availableForSale: p.availableForSale,
-      quantityAvailable: p.quantityAvailable,
-      description: p.description,
-      featuredImage: p.featuredImage,
-      images: p.images || []
-    }));
-  };
+export const getProducts = async (): Promise<Product[]> => {
+  const res = await API.get("/api/storefront/products/all");
+
+  const data = Array.isArray(res.data)
+    ? res.data
+    : Array.isArray(res.data?.items)
+    ? res.data.items
+    : Array.isArray(res.data?.data)
+    ? res.data.data
+    : [];
+
+  return data.map(mapIncomingProduct);
+};
 
   export const predictiveSearch = async (query: string): Promise<PredictiveSuggestion[]> => {
     if (!query || !query.trim()) return [];
