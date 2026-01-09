@@ -176,3 +176,14 @@ export interface Product {
       return sorted.slice(0, 8);
     }
   };
+
+  export const getNewArrivals = async (): Promise<Product[]> => {
+    try {
+      const res = await API.get("/api/products/new-arrivals");
+      const data = Array.isArray(res.data) ? res.data : [];
+      return data.map(mapIncomingProduct);
+    } catch {
+      const all = await getProducts();
+      return all.slice(0, 8);
+    }
+  };

@@ -37,6 +37,8 @@ function AppTabs() {
           let iconName: string = "home";
           if (route.name === "Shop") {
             iconName = "store";
+          } else if (route.name === "Collections") {
+            iconName = "grid-view";
           } else if (route.name === "Cart") {
             iconName = "shopping-cart";
           } else if (route.name === "Profile") {
@@ -47,6 +49,11 @@ function AppTabs() {
       })}
     >
       <Tab.Screen name="Shop" component={ProductsStack} />
+      <Tab.Screen
+        name="Collections"
+        component={ProductsStack}
+        initialParams={{ initialRouteName: "Collections" }}
+      />
       <Tab.Screen
         name="Cart"
         component={CartScreen}

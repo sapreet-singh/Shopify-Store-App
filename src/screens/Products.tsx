@@ -1,22 +1,25 @@
 import React, { useEffect, useState } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { Product, ProductCollection } from "../api/products";
+import { getBestSellers, getNewArrivals, Product, ProductCollection } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
 import { scale } from "react-native-size-matters";
+import { ProductCardSkeleton } from "../components/Skeletons";
 
 export default function ProductsScreen({ navigation, route }: any) {
   const NUM_COLUMNS = 2;
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
   const { accessToken } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
+  const listType = route?.params?.listType;
 
   const catParam = route?.params?.category;
   useEffect(() => {
@@ -33,6 +36,45 @@ export default function ProductsScreen({ navigation, route }: any) {
     setProducts(prods || []);
     setFilteredProducts(prods || []);
   }, [route]);
+
+  useEffect(() => {
+    const listTypeValue = String(listType || "");
+    if (!listTypeValue) return;
+
+    let isActive = true;
+    setLoadingProducts(true);
+
+    const fetcher =
+      listTypeValue === "best-sellers"
+        ? getBestSellers
+        : listTypeValue === "new-arrivals"
+        ? getNewArrivals
+        : null;
+
+    if (!fetcher) {
+      setLoadingProducts(false);
+      return;
+    }
+
+    fetcher()
+      .then((data) => {
+        if (!isActive) return;
+        setProducts(data);
+        setFilteredProducts(data);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        Alert.alert("Error", "Failed to load products. Please try again.");
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setLoadingProducts(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [listType]);
 
   useEffect(() => {
     setFilteredProducts(products);
@@ -148,10 +190,28 @@ export default function ProductsScreen({ navigation, route }: any) {
   
   
 
-  if (!selectedCategory) {
+  if (!selectedCategory || loadingProducts) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading products...</Text>
+      <View style={styles.container}>
+        <View style={styles.categoryHeader}>
+          <View style={styles.skeletonHeaderLeft}>
+            <View style={styles.skeletonHeaderIcon} />
+            <View style={styles.skeletonHeaderBackText} />
+          </View>
+          <View style={styles.skeletonHeaderTitle} />
+        </View>
+        <FlatList
+          data={[1, 2, 3, 4, 5, 6]}
+          keyExtractor={(item) => `skeleton-${item}`}
+          renderItem={() => (
+            <View style={styles.gridItem}>
+              <ProductCardSkeleton style={styles.skeletonProductCard} />
+            </View>
+          )}
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+          contentContainerStyle={styles.innerlist}
+        />
       </View>
     );
   }
@@ -446,5 +506,32 @@ const styles = StyleSheet.create({
   innerlist:{
     paddingHorizontal:12,
     paddingBottom:12
-  }
+  },
+  skeletonHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  skeletonHeaderIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonHeaderBackText: {
+    width: 80,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonHeaderTitle: {
+    width: 120,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonProductCard: {
+    width: "100%",
+    marginRight: 0,
+  },
 });
