@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
 import { getBestSellers, getNewArrivals, Product, ProductCollection } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useFocusEffect } from "@react-navigation/native";
@@ -9,8 +9,15 @@ import { addToCart, createCart } from "../api/cart";
 import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
 import { scale } from "react-native-size-matters";
 import { ProductCardSkeleton } from "../components/Skeletons";
+import FastImage from "react-native-fast-image";
 
 export default function ProductsScreen({ navigation, route }: any) {
+  const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+    if (!u) return undefined;
+    const url = String(u).trim();
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}width=${w}&format=webp`;
+  };
   const NUM_COLUMNS = 2;
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -105,9 +112,7 @@ export default function ProductsScreen({ navigation, route }: any) {
     } catch {}
   }, [products, user?.id]);
 
-  useEffect(() => {
-    refreshWishlistFlags();
-  }, [refreshWishlistFlags]);
+  const keyExtractor = useCallback((item: Product) => item.id, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -144,36 +149,9 @@ export default function ProductsScreen({ navigation, route }: any) {
       Alert.alert("Error", "Wishlist update failed. Please try again.");
     }
   };
+  const toggleFavoriteCb = useCallback(toggleFavorite, [accessToken, user?.id, navigation, favorites]);
 
-  const handleQuickAddToCart = async (item: Product) => {
-    if (addingToCartId) return;
-    setAddingToCartId(item.id);
-    const token = accessToken || undefined;
-    try {
-      if (!cartId) {
-        const res = await createCart(item.variantId, 1, token);
-        if (res && res.id) {
-          await setCartId(res.id);
-          await refreshCart(res.id);
-          showSuccessAlert();
-        } else {
-            throw new Error("Failed to create cart");
-        }
-      } else {
-        await addToCart(cartId, item.variantId, 1, token);
-        await refreshCart(cartId);
-        showSuccessAlert();
-      }
-      setAddedToCart((prev) => ({ ...prev, [item.id]: true }));
-    } catch (e) {
-      console.error("Quick add to cart failed", e);
-      Alert.alert("Error", "Failed to add item to cart. Please try again.");
-    } finally {
-      setAddingToCartId(null);
-    }
-  };
-
-  const showSuccessAlert = () => {
+  const showSuccessAlertCb = useCallback(() => {
     Alert.alert(
       "Success",
       "Item added to cart",
@@ -188,10 +166,39 @@ export default function ProductsScreen({ navigation, route }: any) {
         }
       ]
     );
+  }, [navigation]);
+
+  const handleQuickAddToCart = async (item: Product) => {
+    if (addingToCartId) return;
+    setAddingToCartId(item.id);
+    const token = accessToken || undefined;
+    try {
+      if (!cartId) {
+        const res = await createCart(item.variantId, 1, token);
+        if (res && res.id) {
+          await setCartId(res.id);
+          await refreshCart(res.id);
+          showSuccessAlertCb();
+        } else {
+            throw new Error("Failed to create cart");
+        }
+      } else {
+        await addToCart(cartId, item.variantId, 1, token);
+        await refreshCart(cartId);
+        showSuccessAlertCb();
+      }
+      setAddedToCart((prev) => ({ ...prev, [item.id]: true }));
+    } catch (e) {
+      console.error("Quick add to cart failed", e);
+      Alert.alert("Error", "Failed to add item to cart. Please try again.");
+    } finally {
+      setAddingToCartId(null);
+    }
   };
+  const handleQuickAddToCartCb = useCallback(handleQuickAddToCart, [addingToCartId, accessToken, cartId, setCartId, refreshCart, showSuccessAlertCb]);
 
   const renderItem = ({ item }: { item: Product }) => {
-    const imageUrl = item.featuredImage?.url;
+    const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
     const isOut = !item.availableForSale || item.quantityAvailable === 0;
 
     return (
@@ -203,7 +210,15 @@ export default function ProductsScreen({ navigation, route }: any) {
         <View style={styles.card}>
           <View style={styles.imageWrapper}>
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} />
+            <FastImage
+              source={{
+                uri: imageUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.image}
+              resizeMode={FastImage.resizeMode.cover}
+            />
           ) : (
             <View style={styles.placeholder}>
               <MaterialIcons name="image" size={24} color="#9ca3af" />
@@ -211,7 +226,7 @@ export default function ProductsScreen({ navigation, route }: any) {
           )}
             <View style={styles.topActions}>
               <TouchableOpacity
-                onPress={() => toggleFavorite(item)}
+                onPress={() => toggleFavoriteCb(item)}
                 style={[styles.iconBtn, favorites[item.id] ? styles.iconBtnHighlight : null]}
               >
                 <MaterialIcons
@@ -222,7 +237,7 @@ export default function ProductsScreen({ navigation, route }: any) {
               </TouchableOpacity>
               {!isOut && (
                 <TouchableOpacity
-                  onPress={() => handleQuickAddToCart(item)}
+                  onPress={() => handleQuickAddToCartCb(item)}
                   style={[styles.iconBtn, (addingToCartId === item.id || addedToCart[item.id]) ? styles.iconBtnHighlight : null]}
                 >
                   <MaterialIcons name="add-shopping-cart" size={18} color={(addingToCartId === item.id || addedToCart[item.id]) ? "#25ebbaff" : "#111827"} />
@@ -248,8 +263,18 @@ export default function ProductsScreen({ navigation, route }: any) {
       </TouchableOpacity>
     );
   };
+  const memoizedRenderItem = useCallback(renderItem, [favorites, addingToCartId, addedToCart, navigation, toggleFavoriteCb, handleQuickAddToCartCb]);
   
-  
+  useEffect(() => {
+    const uris = filteredProducts
+      .map((p) => p.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (uris.length > 0) {
+      FastImage.preload(uris as any);
+    }
+  }, [filteredProducts]);
+
 
   if (!selectedCategory || loadingProducts) {
     return (
@@ -272,6 +297,10 @@ export default function ProductsScreen({ navigation, route }: any) {
           numColumns={NUM_COLUMNS}
           columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
           contentContainerStyle={styles.innerlist}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews
         />
       </View>
     );
@@ -291,11 +320,15 @@ export default function ProductsScreen({ navigation, route }: any) {
       </View>
       <FlatList
         data={filteredProducts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        renderItem={memoizedRenderItem}
         numColumns={NUM_COLUMNS}
         columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
         contentContainerStyle={styles.innerlist}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="search-off" size={48} color="#9ca3af" />

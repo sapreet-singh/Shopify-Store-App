@@ -11,8 +11,8 @@ export default function CartScreen({ navigation }: any) {
   // @ts-ignore - using new methods
   const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl, updateLineItemOptimistic, removeLineItemOptimistic, revertOptimisticUpdate } = useCart();
   const { accessToken } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const [loading, _setLoading] = useState(false);
+  const [updatingItems, _setUpdatingItems] = useState<Record<string, boolean>>({});
   const insets=useSafeAreaInsets();
 //   console.log(insets,"insets ");
 

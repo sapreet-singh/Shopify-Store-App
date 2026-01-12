@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
 import { getBestSellers, getNewArrivals, Product, ProductCollection, searchProducts, } from "../api/products";
@@ -7,9 +7,17 @@ import CustomHeader from "../components/CustomHeader";
 import { ProductCardSkeleton } from "../components/Skeletons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
+import FastImage from "react-native-fast-image";
 
 const { width } = Dimensions.get("window");
 const HERO_WIDTH = width - 24;
+
+const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+  if (!u) return undefined;
+  const url = String(u).trim();
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}width=${w}&format=webp`;
+};
 
 const heroImages = [
   require("../assets/hero/Hero 1.png"),
@@ -101,7 +109,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleViewAll = (title: string, products: Product[], id: string) => {
+  const handleViewAll = useCallback((title: string, products: Product[], id: string) => {
     if (!products || products.length === 0) return;
     const cat: ProductCollection = {
       categoryId: id,
@@ -111,10 +119,10 @@ export default function HomeScreen({ navigation }: any) {
       products: [],
     };
     navigation.navigate("ProductList", { category: cat, listType: id });
-  };
+  }, [navigation]);
 
-  const renderHomeProduct = ({ item }: { item: Product }) => {
-    const imageUrl = item.featuredImage?.url;
+  const renderHomeProduct = useCallback(({ item }: { item: Product }) => {
+    const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
     return (
       <TouchableOpacity
         style={styles.productCard}
@@ -123,7 +131,15 @@ export default function HomeScreen({ navigation }: any) {
       >
         <View style={styles.productImageWrap}>
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.productImage} />
+            <FastImage
+              source={{
+                uri: imageUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.productImage}
+              resizeMode={FastImage.resizeMode.cover}
+            />
           ) : (
             <View style={styles.productPlaceholder}>
               <MaterialIcons name="image" size={20} color="#9ca3af" />
@@ -136,7 +152,28 @@ export default function HomeScreen({ navigation }: any) {
         <Text style={styles.productPrice}>₹{item.price}</Text>
       </TouchableOpacity>
     );
-  };
+  }, [navigation]);
+  const keyExtractor = useCallback((item: Product) => item.id, []);
+
+  useEffect(() => {
+    const bsUris = bestSellers
+      .map((p) => p.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (bsUris.length > 0) {
+      FastImage.preload(bsUris as any);
+    }
+  }, [bestSellers]);
+
+  useEffect(() => {
+    const naUris = newArrivals
+      .map((p) => p.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (naUris.length > 0) {
+      FastImage.preload(naUris as any);
+    }
+  }, [newArrivals]);
 
   return (
     <View style={styles.container}>
@@ -300,8 +337,12 @@ export default function HomeScreen({ navigation }: any) {
               horizontal
               showsHorizontalScrollIndicator={false}
               renderItem={renderHomeProduct}
-              keyExtractor={(item) => item.id}
+              keyExtractor={keyExtractor}
               contentContainerStyle={styles.sectionList}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={7}
+              removeClippedSubviews
             />
           )}
         </View>
@@ -338,8 +379,12 @@ export default function HomeScreen({ navigation }: any) {
               horizontal
               showsHorizontalScrollIndicator={false}
               renderItem={renderHomeProduct}
-              keyExtractor={(item) => item.id}
+              keyExtractor={keyExtractor}
               contentContainerStyle={styles.sectionList}
+              initialNumToRender={10}
+              maxToRenderPerBatch={10}
+              windowSize={7}
+              removeClippedSubviews
             />
           )}
         </View>

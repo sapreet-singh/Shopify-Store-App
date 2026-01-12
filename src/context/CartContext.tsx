@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getCart, CartItem, CartFetchResult, getUserCart } from '../api/cart';
 import { useAuth } from './AuthContext';
 
@@ -40,6 +40,8 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const { accessToken, user } = useAuth();
+  const initializedRef = useRef(false);
+  const lastRefreshRef = useRef(0);
 
   const updateLineItemOptimistic = (lineId: string, quantity: number) => {
       setCart(prev => prev.map(item => 
@@ -106,6 +108,9 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     // immediately after optimistic updates in the screen component if we want to avoid flicker.
     // OR we call it but ensure the loading state doesn't block interaction.
     
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 400) return;
+    lastRefreshRef.current = now;
     setIsLoading(true);
     try {
       const result: CartFetchResult = await getCart(idToFetch, accessToken || undefined);
@@ -140,11 +145,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           } catch (e) {
               console.error("Failed to load cartId", e);
           }
+          initializedRef.current = true;
       };
       loadCartId();
   }, []);
 
   useEffect(() => {
+      if (!initializedRef.current) return;
       if (cartId) {
           refreshCart(cartId);
       } else {
@@ -161,13 +168,16 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
               const cid = data?.cartID;
               const del = data?.isDelete;
               if (cid && !del) {
-                  await updateCartId(cid);
-                  await refreshCart(cid);
+                  const current = cartId;
+                  if (current !== cid) {
+                      await updateCartId(cid);
+                      await refreshCart(cid);
+                  }
               }
           } catch (e) { console.error("Failed to restore user cart", e); }
       };
       restoreUserCart();
-  }, [accessToken, user?.id, refreshCart]);
+  }, [accessToken, user?.id, refreshCart, cartId]);
 
   const cartCount = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
 

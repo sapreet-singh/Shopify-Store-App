@@ -1,15 +1,22 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { addToCart, buyProduct, createCart } from "../api/cart";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
+import FastImage from "react-native-fast-image";
 
 const { width } = Dimensions.get("window");
   
   export default function ProductDetailsScreen({ route, navigation }: any) {
+    const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+      if (!u) return undefined;
+      const url = String(u).trim();
+      const sep = url.includes("?") ? "&" : "?";
+      return `${url}${sep}width=${w}&format=webp`;
+    };
     const { product } = route.params;
     const [quantity, setQuantity] = useState(1);
     const [loading, setLoading] = useState(false);
@@ -136,10 +143,6 @@ const { width } = Dimensions.get("window");
       } catch {}
     }, [product.id, user?.id]);
 
-    useEffect(() => {
-      refreshIsFav();
-    }, [refreshIsFav]);
-
     useFocusEffect(
       useCallback(() => {
         refreshIsFav();
@@ -176,12 +179,30 @@ const { width } = Dimensions.get("window");
       }
     };
   
-    const renderImageItem = ({ item }: { item: { url: string } }) => (
+    const renderImageItem = useCallback(({ item }: { item: { url: string } }) => (
       <View style={styles.carouselItem}>
-         <Image source={{ uri: item.url }} style={styles.image} />
+         <FastImage
+           source={{
+             uri: optimizeShopifyUrl(item.url),
+             priority: FastImage.priority.normal,
+             cache: FastImage.cacheControl.immutable,
+           }}
+           style={styles.image}
+           resizeMode={FastImage.resizeMode.contain}
+         />
       </View>
-    );
-  
+    ), []);
+    
+    React.useEffect(() => {
+      const uris = images
+        .map((i: any) => i?.url)
+        .filter(Boolean)
+        .map((u: string) => ({ uri: optimizeShopifyUrl(u) }));
+      if (uris.length > 0) {
+        FastImage.preload(uris as any);
+      }
+    }, [images]);
+
     return (
       <ScrollView style={styles.container}>
         {/* Image Carousel */}
@@ -308,7 +329,6 @@ const { width } = Dimensions.get("window");
       </ScrollView>
     );
   }
-  
   const styles = StyleSheet.create({
     container: {
       flex: 1,

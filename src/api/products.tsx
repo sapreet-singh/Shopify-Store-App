@@ -1,4 +1,5 @@
 import { API } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Product {
     id: string;
@@ -174,6 +175,18 @@ export const getProducts = async (): Promise<Product[]> => {
     if (cache.bestSellers && (now - cache.timestamp < CACHE_DURATION)) {
       return cache.bestSellers;
     }
+    try {
+      const s = await AsyncStorage.getItem("cache:bestSellers:v1");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed?.items) && typeof parsed?.ts === "number" && (now - parsed.ts < CACHE_DURATION)) {
+          const items = parsed.items.map(mapIncomingProduct);
+          cache.bestSellers = items;
+          cache.timestamp = parsed.ts;
+          return items;
+        }
+      }
+    } catch {}
 
     try {
       const res = await API.get("/api/products/best-sellers");
@@ -183,6 +196,7 @@ export const getProducts = async (): Promise<Product[]> => {
       // Update Cache
       cache.bestSellers = mapped;
       cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:bestSellers:v1", JSON.stringify({ items: data, ts: now })); } catch {}
       
       return mapped;
     } catch {
@@ -197,6 +211,7 @@ export const getProducts = async (): Promise<Product[]> => {
       // Update Cache
       cache.bestSellers = fallback;
       cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:bestSellers:v1", JSON.stringify({ items: fallback, ts: now })); } catch {}
       
       return fallback;
     }
@@ -207,6 +222,18 @@ export const getProducts = async (): Promise<Product[]> => {
     if (cache.newArrivals && (now - cache.timestamp < CACHE_DURATION)) {
       return cache.newArrivals;
     }
+    try {
+      const s = await AsyncStorage.getItem("cache:newArrivals:v1");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed?.items) && typeof parsed?.ts === "number" && (now - parsed.ts < CACHE_DURATION)) {
+          const items = parsed.items.map(mapIncomingProduct);
+          cache.newArrivals = items;
+          cache.timestamp = parsed.ts;
+          return items;
+        }
+      }
+    } catch {}
 
     try {
       const res = await API.get("/api/products/new-arrivals");
@@ -216,6 +243,7 @@ export const getProducts = async (): Promise<Product[]> => {
       // Update Cache
       cache.newArrivals = mapped;
       cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:newArrivals:v1", JSON.stringify({ items: data, ts: now })); } catch {}
 
       return mapped;
     } catch {
@@ -225,6 +253,7 @@ export const getProducts = async (): Promise<Product[]> => {
       // Update Cache
       cache.newArrivals = fallback;
       cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:newArrivals:v1", JSON.stringify({ items: fallback, ts: now })); } catch {}
 
       return fallback;
     }

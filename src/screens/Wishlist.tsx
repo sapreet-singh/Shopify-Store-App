@@ -1,12 +1,21 @@
 import React, { useCallback, useMemo, useState } from "react";
-import { View, FlatList, Text, TouchableOpacity, Image, ActivityIndicator, Alert, StyleSheet } from "react-native";
+import { View, FlatList, Text, TouchableOpacity, ActivityIndicator, Alert, StyleSheet } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import FastImage from "react-native-fast-image";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "../context/AuthContext";
 import { getProducts, Product } from "../api/products";
 import { buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist, WishlistDto } from "../api/wishlist";
+
+const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+  if (!u) return undefined;
+  const url = String(u).trim();
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}width=${w}&format=webp`;
+};
 
 type WishlistRow = {
   dto: WishlistDto;
@@ -87,13 +96,21 @@ export default function WishlistScreen({ navigation }: any) {
 
     setLoading(true);
     try {
+      const cacheKey = `wishlist:${user.id}:v1`;
+      const cached = await AsyncStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (parsed && Array.isArray(parsed.rows)) {
+          setRows(parsed.rows);
+        }
+      }
       const wishlistRes = await getWishlist(user.id);
       const rawItems = normalizeWishlistItems(wishlistRes?.data);
       const looksLikeProducts = rawItems.some((x: any) => x && typeof x === "object" && (x.id || x.variantId || x.title));
 
       if (looksLikeProducts) {
         const productsInWishlist = rawItems.map(coerceProduct).filter((p: Product) => Boolean(p.id));
-        setRows(
+        const nextRows = 
           productsInWishlist.map((product) => ({
             dto: {
               CustomerId: user.id,
@@ -102,7 +119,9 @@ export default function WishlistScreen({ navigation }: any) {
             },
             product,
           }))
-        );
+        ;
+        setRows(nextRows);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ rows: nextRows, ts: Date.now() }));
         return;
       }
 
@@ -124,7 +143,7 @@ export default function WishlistScreen({ navigation }: any) {
         return false;
       });
       const productMap = new Map(productsInWishlist.map((p) => [p.id, p]));
-      setRows(
+      const nextRows = 
         wishlistItems
           .filter((x: WishlistDto) => x.ProductId)
           .map((dto: WishlistDto) => {
@@ -139,7 +158,9 @@ export default function WishlistScreen({ navigation }: any) {
             }
             return { dto, product };
           })
-      );
+      ;
+      setRows(nextRows);
+      await AsyncStorage.setItem(cacheKey, JSON.stringify({ rows: nextRows, ts: Date.now() }));
     } catch {
       Alert.alert("Error", "Failed to load wishlist. Please try again.");
     } finally {
@@ -153,7 +174,7 @@ export default function WishlistScreen({ navigation }: any) {
     }, [refresh])
   );
 
-  const handleRemove = async (dto: WishlistDto) => {
+  const handleRemove = useCallback(async (dto: WishlistDto) => {
     if (!user?.id) return;
     setLoading(true);
     try {
@@ -164,9 +185,9 @@ export default function WishlistScreen({ navigation }: any) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, refresh]);
 
-  const handleOpen = (productId: string) => {
+  const handleOpen = useCallback((productId: string) => {
     const keys = buildProductIdKeys(productId);
     let product: Product | undefined;
     for (const k of keys) {
@@ -181,8 +202,59 @@ export default function WishlistScreen({ navigation }: any) {
       return;
     }
     navigation.navigate("Shop", { screen: "ProductDetails", params: { product } });
-  };
+  }, [productById, navigation]);
 
+  const renderItem = useCallback(({ item }: { item: WishlistRow }) => {
+    const imageUrl = optimizeShopifyUrl(item.product?.featuredImage?.url);
+    const title = item.product?.title || item.dto.ProductId;
+    const price = item.product?.price;
+    const dto: WishlistDto = {
+      CustomerId: customerId,
+      ProductId: item.dto.ProductId,
+      VariantId: item.dto.VariantId || item.product?.variantId || "",
+    };
+
+    return (
+      <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => handleOpen(item.dto.ProductId)}>
+        <View style={styles.imageWrapper}>
+          {imageUrl ? (
+            <FastImage
+              source={{
+                uri: imageUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.image}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={styles.placeholder}>
+              <MaterialIcons name="image" size={24} color="#9ca3af" />
+            </View>
+          )}
+        </View>
+        <View style={styles.content}>
+          <Text style={styles.title} numberOfLines={2}>
+            {title}
+          </Text>
+          {price ? <Text style={styles.price}>₹{price}</Text> : null}
+        </View>
+        <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(dto)}>
+          <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
+        </TouchableOpacity>
+      </TouchableOpacity>
+    );
+  }, [customerId, handleRemove, handleOpen]);
+
+  React.useEffect(() => {
+    const uris = rows
+      .map((r) => r.product?.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (uris.length > 0) {
+      FastImage.preload(uris as any);
+    }
+  }, [rows]);
   if (loading && rows.length === 0) {
     return (
       <View style={[styles.loadingContainer, { paddingTop: insets.top }]}>
@@ -217,39 +289,11 @@ export default function WishlistScreen({ navigation }: any) {
         data={rows}
         keyExtractor={(item) => item.dto.ProductId}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => {
-          const imageUrl = item.product?.featuredImage?.url;
-          const title = item.product?.title || item.dto.ProductId;
-          const price = item.product?.price;
-          const dto: WishlistDto = {
-            CustomerId: customerId,
-            ProductId: item.dto.ProductId,
-            VariantId: item.dto.VariantId || item.product?.variantId || "",
-          };
-
-          return (
-            <TouchableOpacity style={styles.card} activeOpacity={0.8} onPress={() => handleOpen(item.dto.ProductId)}>
-              <View style={styles.imageWrapper}>
-                {imageUrl ? (
-                  <Image source={{ uri: imageUrl }} style={styles.image} />
-                ) : (
-                  <View style={styles.placeholder}>
-                    <MaterialIcons name="image" size={24} color="#9ca3af" />
-                  </View>
-                )}
-              </View>
-              <View style={styles.content}>
-                <Text style={styles.title} numberOfLines={2}>
-                  {title}
-                </Text>
-                {price ? <Text style={styles.price}>₹{price}</Text> : null}
-              </View>
-              <TouchableOpacity style={styles.removeBtn} onPress={() => handleRemove(dto)}>
-                <MaterialIcons name="delete-outline" size={22} color="#ef4444" />
-              </TouchableOpacity>
-            </TouchableOpacity>
-          );
-        }}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews
+        renderItem={renderItem}
       />
     </View>
   );
