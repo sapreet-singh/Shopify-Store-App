@@ -59,7 +59,7 @@ const { width } = Dimensions.get("window");
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
               await setCartId(res.id);
-              await refreshCart();
+              await refreshCart(res.id);
               Alert.alert("Success", "Cart created and item added!");
               navigation.navigate("Cart");
           } else {

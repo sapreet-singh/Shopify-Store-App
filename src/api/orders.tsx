@@ -13,6 +13,10 @@ export interface Order {
   processedAt: string;
   financialStatus: string;
   fulfillmentStatus: string;
+  deliveryStatus: string | null;
+  trackingNumber: string | null;
+  trackingUrl: string | null;
+  trackingCompany: string | null;
   totalAmount: number;
   currency: string;
   items: OrderItem[];
@@ -22,7 +26,7 @@ export const getCustomerOrders = async (customerAccessToken: string) => {
   try {
     console.log("getCustomerOrders", { customerAccessToken });
   } catch {}
-  return API.get<Order[]>("/api/orders/GetCustomerOrders", {
+  return API.get<Order[]>("/api/Order/GetCustomerOrders", {
     params: { customerAccessToken },
   });
 };
