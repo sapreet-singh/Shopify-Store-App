@@ -1,8 +1,9 @@
-import React, { useEffect, useState, useRef } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, Image, ActivityIndicator } from "react-native";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator } from "react-native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { predictiveSearch, PredictiveSuggestion, getBestSellers, Product } from "../api/products";
+import FastImage from "react-native-fast-image";
 
 interface SearchOverlayProps {
   visible: boolean;
@@ -13,6 +14,16 @@ interface SearchOverlayProps {
 }
 
 const STORAGE_KEY = "pastSearches";
+
+const Separator = () => <View style={styles.separator} />;
+const SuggestionsHeader = () => <Text style={styles.sectionTitle}>Suggestions</Text>;
+
+const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+  if (!u) return undefined;
+  const url = String(u).trim();
+  const sep = url.includes("?") ? "&" : "?";
+  return `${url}${sep}width=${w}&format=webp`;
+};
 
 const SearchOverlay: React.FC<SearchOverlayProps> = ({
   visible,
@@ -60,22 +71,20 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
     };
   }, [query, visible]);
 
-  const addPastSearch = async (q: string) => {
+  const addPastSearch = useCallback(async (q: string) => {
     const next = [q, ...pastSearches.filter((x) => x !== q)].slice(0, 8);
     setPastSearches(next);
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {}
-  };
+  }, [pastSearches]);
 
-  const clearPastSearches = async () => {
+  const clearPastSearches = useCallback(async () => {
     setPastSearches([]);
     try { await AsyncStorage.removeItem(STORAGE_KEY); } catch {}
-  };
+  }, []);
 
-  if (!visible) return null;
-
-  const renderSuggestion = ({ item }: { item: PredictiveSuggestion }) => (
+  const renderSuggestion = useCallback(({ item }: { item: PredictiveSuggestion }) => (
     <TouchableOpacity
       style={styles.suggestionRow}
       onPress={() => {
@@ -90,20 +99,43 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
       <MaterialIcons name="search" size={18} color="#6b7280" style={{ marginRight: 8 }} />
       <Text style={styles.suggestionText} numberOfLines={1}>{item.type === "product" ? item.title : item.query || item.title}</Text>
     </TouchableOpacity>
-  );
+  ), [addPastSearch, onPickSuggestion]);
 
-  const renderBestSeller = ({ item }: { item: Product }) => {
-    const img = item.featuredImage?.url;
+  const renderBestSeller = useCallback(({ item }: { item: Product }) => {
+    const img = optimizeShopifyUrl(item.featuredImage?.url);
     return (
       <View style={styles.productCard}>
         <View style={styles.productImageWrap}>
-          {img ? <Image source={{ uri: img }} style={styles.productImage} /> : <View style={styles.productPlaceholder}><MaterialIcons name="image" size={22} color="#9ca3af" /></View>}
+          {img ? (
+            <FastImage
+              source={{
+                uri: img,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.productImage}
+              resizeMode={FastImage.resizeMode.cover}
+            />
+          ) : (
+            <View style={styles.productPlaceholder}><MaterialIcons name="image" size={22} color="#9ca3af" /></View>
+          )}
         </View>
         <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
         <Text style={styles.productPrice}>₹{item.price}</Text>
       </View>
     );
-  };
+  }, []);
+  const keyExtractorProd = useCallback((item: Product) => item.id, []);
+
+  useEffect(() => {
+    const uris = bestSellers
+      .map((p) => p.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (uris.length > 0) {
+      FastImage.preload(uris as any);
+    }
+  }, [bestSellers]);
 
   const renderHeader = () => (
     <>
@@ -125,6 +157,8 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
     </>
   );
 
+  if (!visible) return null;
+
   return (
     <View style={styles.overlay}>
       <View style={styles.panel}>
@@ -135,18 +169,26 @@ const SearchOverlay: React.FC<SearchOverlayProps> = ({
             data={suggestions}
             keyExtractor={(_, idx) => String(idx)}
             renderItem={renderSuggestion}
-            ItemSeparatorComponent={() => <View style={styles.separator} />}
-            ListHeaderComponent={<Text style={styles.sectionTitle}>Suggestions</Text>}
+            ItemSeparatorComponent={Separator}
+            ListHeaderComponent={SuggestionsHeader}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews
           />
         ) : (
           <FlatList
             data={bestSellers}
             ListHeaderComponent={renderHeader}
-            keyExtractor={(item) => item.id}
+            keyExtractor={keyExtractorProd}
             renderItem={renderBestSeller}
             numColumns={2}
             columnWrapperStyle={styles.columnWrapper}
             contentContainerStyle={styles.listContent}
+            initialNumToRender={10}
+            maxToRenderPerBatch={10}
+            windowSize={7}
+            removeClippedSubviews
             ListFooterComponent={
               <TouchableOpacity style={styles.viewAllBtn} onPress={() => onSubmitQuery(query || "")}>
                 <Text style={styles.viewAllText}>VIEW ALL</Text>

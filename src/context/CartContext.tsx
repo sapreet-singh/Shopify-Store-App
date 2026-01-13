@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { getCart, CartItem, CartFetchResult, getUserCart } from '../api/cart';
 import { useAuth } from './AuthContext';
 
@@ -12,6 +12,12 @@ interface CartContextType {
   cartId: string | null;
   setCartId: (id: string | null) => Promise<void>;
   checkoutUrl: string | null;
+  
+  // New optimistic methods
+  updateLineItemOptimistic: (lineId: string, quantity: number) => void;
+  removeLineItemOptimistic: (lineId: string) => void;
+  addItemOptimistic: (item: Partial<CartItem>) => void;
+  revertOptimisticUpdate: (prevCart: CartItem[]) => void;
 }
 
 const CartContext = createContext<CartContextType>({
@@ -22,6 +28,10 @@ const CartContext = createContext<CartContextType>({
   cartId: null,
   setCartId: async () => {},
   checkoutUrl: null,
+  updateLineItemOptimistic: () => {},
+  removeLineItemOptimistic: () => {},
+  addItemOptimistic: () => {},
+  revertOptimisticUpdate: () => {},
 });
 
 export const CartProvider = ({ children }: { children: React.ReactNode }) => {
@@ -30,6 +40,43 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const { accessToken, user } = useAuth();
+  const initializedRef = useRef(false);
+  const lastRefreshRef = useRef(0);
+
+  const updateLineItemOptimistic = (lineId: string, quantity: number) => {
+      setCart(prev => prev.map(item => 
+          item.id === lineId ? { ...item, qty: quantity } : item
+      ));
+  };
+
+  const removeLineItemOptimistic = (lineId: string) => {
+      setCart(prev => prev.filter(item => item.id !== lineId));
+  };
+
+  const addItemOptimistic = (item: Partial<CartItem>) => {
+      setCart(prev => {
+          // Check if item already exists to increment quantity
+          const existing = prev.find(p => p.variantId === item.variantId);
+          if (existing) {
+             return prev.map(p => p.variantId === item.variantId ? { ...p, qty: (p.qty || 0) + (item.qty || 1) } : p);
+          }
+          // Add new item
+          return [...prev, { 
+              id: item.id || `temp-${Date.now()}`, 
+              productName: item.productName || 'Loading...',
+              qty: item.qty || 1,
+              price: item.price || 0,
+              image: item.image,
+              variantId: item.variantId,
+              variantTitle: item.variantTitle
+           } as CartItem];
+      });
+  };
+
+  const revertOptimisticUpdate = (prevCart: CartItem[]) => {
+      setCart(prevCart);
+  };
+
 
   const updateCartId = async (id: string | null) => {
       setCartIdState(id);
@@ -52,6 +99,18 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
         return;
     }
     
+    // Only set global loading if we are doing a full refresh, not during optimistic background sync
+    // But since this function is generic, we keep it as is. 
+    // The consumer (Cart Screen) will decide whether to show a spinner or not.
+    // However, if we are calling this frequently, we might want to avoid full screen loading.
+    
+    // For now, we keep the original logic but we will NOT call this function 
+    // immediately after optimistic updates in the screen component if we want to avoid flicker.
+    // OR we call it but ensure the loading state doesn't block interaction.
+    
+    const now = Date.now();
+    if (now - lastRefreshRef.current < 400) return;
+    lastRefreshRef.current = now;
     setIsLoading(true);
     try {
       const result: CartFetchResult = await getCart(idToFetch, accessToken || undefined);
@@ -86,11 +145,13 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
           } catch (e) {
               console.error("Failed to load cartId", e);
           }
+          initializedRef.current = true;
       };
       loadCartId();
   }, []);
 
   useEffect(() => {
+      if (!initializedRef.current) return;
       if (cartId) {
           refreshCart(cartId);
       } else {
@@ -107,18 +168,33 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
               const cid = data?.cartID;
               const del = data?.isDelete;
               if (cid && !del) {
-                  await updateCartId(cid);
-                  await refreshCart(cid);
+                  const current = cartId;
+                  if (current !== cid) {
+                      await updateCartId(cid);
+                      await refreshCart(cid);
+                  }
               }
           } catch (e) { console.error("Failed to restore user cart", e); }
       };
       restoreUserCart();
-  }, [accessToken, user?.id, refreshCart]);
+  }, [accessToken, user?.id, refreshCart, cartId]);
 
-  const cartCount = cart.reduce((total, item) => total + item.qty, 0);
+  const cartCount = cart.reduce((acc, item) => acc + (item.qty || 0), 0);
 
   return (
-    <CartContext.Provider value={{ cart, cartCount, isLoading, refreshCart, cartId, setCartId: updateCartId, checkoutUrl }}>
+    <CartContext.Provider value={{ 
+        cart, 
+        cartCount, 
+        isLoading, 
+        refreshCart, 
+        cartId, 
+        setCartId: updateCartId, 
+        checkoutUrl,
+        updateLineItemOptimistic,
+        removeLineItemOptimistic,
+        addItemOptimistic,
+        revertOptimisticUpdate
+    }}>
       {children}
     </CartContext.Provider>
   );

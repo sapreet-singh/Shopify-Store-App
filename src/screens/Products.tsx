@@ -1,22 +1,34 @@
-import React, { useEffect, useState } from "react";
-import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { Product, ProductCollection } from "../api/products";
+import React, { useCallback, useEffect, useState } from "react";
+import { View, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { getBestSellers, getNewArrivals, Product, ProductCollection } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
+import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
 import { scale } from "react-native-size-matters";
+import { ProductCardSkeleton } from "../components/Skeletons";
+import FastImage from "react-native-fast-image";
 
 export default function ProductsScreen({ navigation, route }: any) {
+  const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+    if (!u) return undefined;
+    const url = String(u).trim();
+    const sep = url.includes("?") ? "&" : "?";
+    return `${url}${sep}width=${w}&format=webp`;
+  };
   const NUM_COLUMNS = 2;
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCartId, setAddingToCartId] = useState<string | null>(null);
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
-  const { accessToken } = useAuth();
+  const { accessToken, user } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
+  const listType = route?.params?.listType;
 
   const catParam = route?.params?.category;
   useEffect(() => {
@@ -35,42 +47,111 @@ export default function ProductsScreen({ navigation, route }: any) {
   }, [route]);
 
   useEffect(() => {
+    const listTypeValue = String(listType || "");
+    if (!listTypeValue) return;
+
+    let isActive = true;
+    setLoadingProducts(true);
+
+    const fetcher =
+      listTypeValue === "best-sellers"
+        ? getBestSellers
+        : listTypeValue === "new-arrivals"
+        ? getNewArrivals
+        : null;
+
+    if (!fetcher) {
+      setLoadingProducts(false);
+      return;
+    }
+
+    fetcher()
+      .then((data) => {
+        if (!isActive) return;
+        setProducts(data);
+        setFilteredProducts(data);
+      })
+      .catch(() => {
+        if (!isActive) return;
+        Alert.alert("Error", "Failed to load products. Please try again.");
+      })
+      .finally(() => {
+        if (!isActive) return;
+        setLoadingProducts(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [listType]);
+
+  useEffect(() => {
     setFilteredProducts(products);
   }, [products]);
 
-  const toggleFavorite = (id: string) => {
-    setFavorites((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleQuickAddToCart = async (item: Product) => {
-    if (addingToCartId) return;
-    setAddingToCartId(item.id);
-    const token = accessToken || undefined;
+  const refreshWishlistFlags = useCallback(async () => {
+    if (!user?.id) return;
     try {
-      if (!cartId) {
-        const res = await createCart(item.variantId, 1, token);
-        if (res && res.id) {
-          await setCartId(res.id);
-          await refreshCart(res.id);
-          showSuccessAlert();
-        } else {
-            throw new Error("Failed to create cart");
+      const res = await getWishlist(user.id);
+      const items = normalizeWishlistItems(res?.data);
+      const ids = new Set<string>();
+      for (const it of items) {
+        const pid = String(it?.ProductId ?? it?.productId ?? it?.productID ?? it?.id ?? "").trim();
+        for (const k of buildProductIdKeys(pid)) {
+          ids.add(k);
         }
-      } else {
-        await addToCart(cartId, item.variantId, 1, token);
-        await refreshCart(cartId);
-        showSuccessAlert();
       }
-      setAddedToCart((prev) => ({ ...prev, [item.id]: true }));
-    } catch (e) {
-      console.error("Quick add to cart failed", e);
-      Alert.alert("Error", "Failed to add item to cart. Please try again.");
-    } finally {
-      setAddingToCartId(null);
+      setFavorites((prev) => {
+        const next = { ...prev };
+        for (const p of products) {
+          const keys = buildProductIdKeys(p.id);
+          next[p.id] = keys.some((k) => ids.has(k));
+        }
+        return next;
+      });
+    } catch {}
+  }, [products, user?.id]);
+
+  const keyExtractor = useCallback((item: Product) => item.id, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshWishlistFlags();
+    }, [refreshWishlistFlags])
+  );
+
+  const toggleFavorite = async (item: Product) => {
+    if (!accessToken || !user?.id) {
+      Alert.alert("Login Required", "You need to login to use wishlist.", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Login", onPress: () => navigation.navigate("Login") },
+      ]);
+      return;
+    }
+
+    const nextValue = !favorites[item.id];
+    setFavorites((prev) => ({ ...prev, [item.id]: nextValue }));
+
+    const dto = {
+      CustomerId: user.id,
+      ProductId: item.id,
+      VariantId: item.variantId,
+    };
+
+    try {
+      if (nextValue) {
+        await addToWishlist(dto);
+      } else {
+        await removeFromWishlist(dto);
+      }
+    } catch {
+      setFavorites((prev) => ({ ...prev, [item.id]: !nextValue }));
+      Alert.alert("Error", "Wishlist update failed. Please try again.");
     }
   };
+  const toggleFavoriteCb = useCallback(toggleFavorite, [accessToken, user?.id, navigation, favorites]);
 
-  const showSuccessAlert = () => {
+  const showSuccessAlertCb = useCallback(() => {
     Alert.alert(
       "Success",
       "Item added to cart",
@@ -85,10 +166,39 @@ export default function ProductsScreen({ navigation, route }: any) {
         }
       ]
     );
+  }, [navigation]);
+
+  const handleQuickAddToCart = async (item: Product) => {
+    if (addingToCartId) return;
+    setAddingToCartId(item.id);
+    const token = accessToken || undefined;
+    try {
+      if (!cartId) {
+        const res = await createCart(item.variantId, 1, token);
+        if (res && res.id) {
+          await setCartId(res.id);
+          await refreshCart(res.id);
+          showSuccessAlertCb();
+        } else {
+            throw new Error("Failed to create cart");
+        }
+      } else {
+        await addToCart(cartId, item.variantId, 1, token);
+        await refreshCart(cartId);
+        showSuccessAlertCb();
+      }
+      setAddedToCart((prev) => ({ ...prev, [item.id]: true }));
+    } catch (e) {
+      console.error("Quick add to cart failed", e);
+      Alert.alert("Error", "Failed to add item to cart. Please try again.");
+    } finally {
+      setAddingToCartId(null);
+    }
   };
+  const handleQuickAddToCartCb = useCallback(handleQuickAddToCart, [addingToCartId, accessToken, cartId, setCartId, refreshCart, showSuccessAlertCb]);
 
   const renderItem = ({ item }: { item: Product }) => {
-    const imageUrl = item.featuredImage?.url;
+    const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
     const isOut = !item.availableForSale || item.quantityAvailable === 0;
 
     return (
@@ -100,7 +210,15 @@ export default function ProductsScreen({ navigation, route }: any) {
         <View style={styles.card}>
           <View style={styles.imageWrapper}>
           {imageUrl ? (
-            <Image source={{ uri: imageUrl }} style={styles.image} />
+            <FastImage
+              source={{
+                uri: imageUrl,
+                priority: FastImage.priority.normal,
+                cache: FastImage.cacheControl.immutable,
+              }}
+              style={styles.image}
+              resizeMode={FastImage.resizeMode.cover}
+            />
           ) : (
             <View style={styles.placeholder}>
               <MaterialIcons name="image" size={24} color="#9ca3af" />
@@ -108,7 +226,7 @@ export default function ProductsScreen({ navigation, route }: any) {
           )}
             <View style={styles.topActions}>
               <TouchableOpacity
-                onPress={() => toggleFavorite(item.id)}
+                onPress={() => toggleFavoriteCb(item)}
                 style={[styles.iconBtn, favorites[item.id] ? styles.iconBtnHighlight : null]}
               >
                 <MaterialIcons
@@ -119,7 +237,7 @@ export default function ProductsScreen({ navigation, route }: any) {
               </TouchableOpacity>
               {!isOut && (
                 <TouchableOpacity
-                  onPress={() => handleQuickAddToCart(item)}
+                  onPress={() => handleQuickAddToCartCb(item)}
                   style={[styles.iconBtn, (addingToCartId === item.id || addedToCart[item.id]) ? styles.iconBtnHighlight : null]}
                 >
                   <MaterialIcons name="add-shopping-cart" size={18} color={(addingToCartId === item.id || addedToCart[item.id]) ? "#25ebbaff" : "#111827"} />
@@ -145,21 +263,56 @@ export default function ProductsScreen({ navigation, route }: any) {
       </TouchableOpacity>
     );
   };
+  const memoizedRenderItem = useCallback(renderItem, [favorites, addingToCartId, addedToCart, navigation, toggleFavoriteCb, handleQuickAddToCartCb]);
   
-  
+  useEffect(() => {
+    const uris = filteredProducts
+      .map((p) => p.featuredImage?.url)
+      .filter(Boolean)
+      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
+    if (uris.length > 0) {
+      FastImage.preload(uris as any);
+    }
+  }, [filteredProducts]);
 
-  if (!selectedCategory) {
+
+  if (!selectedCategory || loadingProducts) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text style={styles.loadingText}>Loading products...</Text>
+      <View style={styles.container}>
+        <View style={styles.categoryHeader}>
+          <View style={styles.skeletonHeaderLeft}>
+            <View style={styles.skeletonHeaderIcon} />
+            <View style={styles.skeletonHeaderBackText} />
+          </View>
+          <View style={styles.skeletonHeaderTitle} />
+        </View>
+        <FlatList
+          data={[1, 2, 3, 4, 5, 6]}
+          keyExtractor={(item) => `skeleton-${item}`}
+          renderItem={() => (
+            <View style={styles.gridItem}>
+              <ProductCardSkeleton style={styles.skeletonProductCard} />
+            </View>
+          )}
+          numColumns={NUM_COLUMNS}
+          columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
+          contentContainerStyle={styles.innerlist}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={7}
+          removeClippedSubviews
+        />
       </View>
     );
   }
 
   return (
-    <View style={{ flex: 1, paddingTop: scale(12) }}>
+    <View style={styles.container}>
       <View style={styles.categoryHeader}>
-        <TouchableOpacity onPress={() => navigation.navigate("Home")} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => (navigation.canGoBack?.() ? navigation.goBack() : navigation.navigate("Home"))}
+          style={styles.backBtn}
+        >
           <MaterialIcons name="arrow-back" size={20} color="#111827" />
           <Text style={styles.backText}>Collections</Text>
         </TouchableOpacity>
@@ -167,11 +320,15 @@ export default function ProductsScreen({ navigation, route }: any) {
       </View>
       <FlatList
         data={filteredProducts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+        keyExtractor={keyExtractor}
+        renderItem={memoizedRenderItem}
         numColumns={NUM_COLUMNS}
         columnWrapperStyle={NUM_COLUMNS > 1 ? styles.column : undefined}
         contentContainerStyle={styles.innerlist}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={7}
+        removeClippedSubviews
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <MaterialIcons name="search-off" size={48} color="#9ca3af" />
@@ -196,6 +353,10 @@ export default function ProductsScreen({ navigation, route }: any) {
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    paddingTop: scale(12),
+  },
   column: {
     justifyContent: "space-between",
     marginBottom: 16,
@@ -442,5 +603,32 @@ const styles = StyleSheet.create({
   innerlist:{
     paddingHorizontal:12,
     paddingBottom:12
-  }
+  },
+  skeletonHeaderLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  skeletonHeaderIcon: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonHeaderBackText: {
+    width: 80,
+    height: 16,
+    borderRadius: 4,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonHeaderTitle: {
+    width: 120,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: "#e5e7eb",
+  },
+  skeletonProductCard: {
+    width: "100%",
+    marginRight: 0,
+  },
 });

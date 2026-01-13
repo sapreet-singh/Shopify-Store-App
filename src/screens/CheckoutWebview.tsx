@@ -46,7 +46,7 @@ export default function CheckoutWebview({ route, navigation }: any) {
           </View>
         )}
         onNavigationStateChange={handleNavigationStateChange}
-        style={{ flex: 1 }}
+        style={styles.webview}
       />
     </View>
   );
@@ -54,6 +54,9 @@ export default function CheckoutWebview({ route, navigation }: any) {
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  webview: {
     flex: 1,
   },
   loadingContainer: {

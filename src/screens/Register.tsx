@@ -105,6 +105,7 @@ export default function RegisterScreen() {
             const res = await createCart(variantId, quantity, token);
             if (res && res.id) {
                 await setCartId(res.id);
+                await refreshCart(res.id);
             }
         } else {
             await addToCart(cartId, variantId, quantity, token);

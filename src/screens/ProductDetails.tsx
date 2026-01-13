@@ -1,20 +1,30 @@
-import React, { useState } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
+import React, { useCallback, useState } from "react";
+import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import { addToCart, buyProduct, createCart } from "../api/cart";
 import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
+import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
+import FastImage from "react-native-fast-image";
 
 const { width } = Dimensions.get("window");
   
   export default function ProductDetailsScreen({ route, navigation }: any) {
+    const optimizeShopifyUrl = (u?: string, w: number = 400) => {
+      if (!u) return undefined;
+      const url = String(u).trim();
+      const sep = url.includes("?") ? "&" : "?";
+      return `${url}${sep}width=${w}&format=webp`;
+    };
     const { product } = route.params;
     const [quantity, setQuantity] = useState(1);
     const [loading, setLoading] = useState(false);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isFav, setIsFav] = useState(false);
-    const { accessToken } = useAuth();
-    const { refreshCart, cartId, setCartId } = useCart();
+    const { accessToken, user } = useAuth();
+    // @ts-ignore
+    const { refreshCart, cartId, setCartId, addItemOptimistic, revertOptimisticUpdate, cart } = useCart();
   
     const increaseQty = () => setQuantity(q => q + 1);
     const decreaseQty = () => setQuantity(q => (q > 1 ? q - 1 : 1));
@@ -40,15 +50,16 @@ const { width } = Dimensions.get("window");
           return;
       }
   
-      setLoading(true);
+      // setLoading(true); // Don't block UI for existing cart additions
       try {
         const token = accessToken || undefined;
         
         if (!cartId) {
+          setLoading(true); // Still block for creation as it is complex
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
               await setCartId(res.id);
-              await refreshCart();
+              await refreshCart(res.id);
               Alert.alert("Success", "Cart created and item added!");
               navigation.navigate("Cart");
           } else {
@@ -56,10 +67,31 @@ const { width } = Dimensions.get("window");
               return;
           }
         } else {
-          await addToCart(cartId, product.variantId, quantity, token);
-          await refreshCart();
+          // Optimistic Add
+          const prevCart = [...cart];
+          addItemOptimistic({
+             id: `temp-${Date.now()}`,
+             productName: product.title,
+             qty: quantity,
+             price: parseFloat(product.price),
+             image: product.featuredImage?.url || product.images?.[0]?.url,
+             variantId: product.variantId,
+             variantTitle: product.variantTitle
+          });
+
+          // Show Success immediately (or navigate)
           Alert.alert("Success", "Item added to cart!");
-          navigation.navigate("Cart");
+          // navigation.navigate("Cart"); // Optional: Navigate immediately
+
+          // Background sync
+          try {
+             await addToCart(cartId, product.variantId, quantity, token);
+             // await refreshCart(); // Trust optimistic
+          } catch(e) {
+             console.error("Background add failed", e);
+             revertOptimisticUpdate(prevCart);
+             Alert.alert("Error", "Failed to add to cart (Network Error)");
+          }
         }
       } catch (error) {
         console.error("Add to cart failed", error);
@@ -93,13 +125,84 @@ const { width } = Dimensions.get("window");
   
     const images = product?.images?.length ? product.images : (product.featuredImage ? [product.featuredImage] : []);
     const isOutOfStock = !product.availableForSale || product.quantityAvailable === 0;
-  
-    const renderImageItem = ({ item }: { item: { url: string } }) => (
-      <View style={{ width: width, height: 300, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9f9f9' }}>
-         <Image source={{ uri: item.url }} style={styles.image} />
-      </View>
+
+    const refreshIsFav = useCallback(async () => {
+      if (!user?.id) return;
+      try {
+        const res = await getWishlist(user.id);
+        const items = normalizeWishlistItems(res?.data);
+        const ids = new Set<string>();
+        for (const it of items) {
+          const pid = String(it?.ProductId ?? it?.productId ?? it?.productID ?? it?.id ?? "").trim();
+          for (const k of buildProductIdKeys(pid)) {
+            ids.add(k);
+          }
+        }
+        const productKeys = buildProductIdKeys(product.id);
+        setIsFav(productKeys.some((k) => ids.has(k)));
+      } catch {}
+    }, [product.id, user?.id]);
+
+    useFocusEffect(
+      useCallback(() => {
+        refreshIsFav();
+      }, [refreshIsFav])
     );
+
+    const handleToggleWishlist = async () => {
+      if (!accessToken || !user?.id) {
+        Alert.alert("Login Required", "You need to login to use wishlist.", [
+          { text: "Cancel", style: "cancel" },
+          { text: "Login", onPress: () => navigation.navigate("Login") },
+        ]);
+        return;
+      }
+
+      const nextValue = !isFav;
+      setIsFav(nextValue);
+
+      const dto = {
+        CustomerId: user.id,
+        ProductId: product.id,
+        VariantId: product.variantId,
+      };
+
+      try {
+        if (nextValue) {
+          await addToWishlist(dto);
+        } else {
+          await removeFromWishlist(dto);
+        }
+      } catch {
+        setIsFav(!nextValue);
+        Alert.alert("Error", "Wishlist update failed. Please try again.");
+      }
+    };
   
+    const renderImageItem = useCallback(({ item }: { item: { url: string } }) => (
+      <View style={styles.carouselItem}>
+         <FastImage
+           source={{
+             uri: optimizeShopifyUrl(item.url),
+             priority: FastImage.priority.normal,
+             cache: FastImage.cacheControl.immutable,
+           }}
+           style={styles.image}
+           resizeMode={FastImage.resizeMode.contain}
+         />
+      </View>
+    ), []);
+    
+    React.useEffect(() => {
+      const uris = images
+        .map((i: any) => i?.url)
+        .filter(Boolean)
+        .map((u: string) => ({ uri: optimizeShopifyUrl(u) }));
+      if (uris.length > 0) {
+        FastImage.preload(uris as any);
+      }
+    }, [images]);
+
     return (
       <ScrollView style={styles.container}>
         {/* Image Carousel */}
@@ -112,15 +215,15 @@ const { width } = Dimensions.get("window");
                 horizontal
                 pagingEnabled
                 showsHorizontalScrollIndicator={false}
-                style={{ height: 300 }}
+                style={styles.carousel}
               />
               {/* Top actions over image area */}
               <View style={styles.imageTopBar}>
                 <View style={[styles.stockPill, { backgroundColor: isOutOfStock ? "#ef4444" : "#10b981" }]}>
                   <Text style={styles.stockPillText}>{isOutOfStock ? "Out of stock" : "In stock"}</Text>
                 </View>
-                <View style={{ flexDirection: "row" }}>
-                  <TouchableOpacity style={styles.roundIcon} onPress={() => setIsFav(!isFav)}>
+                <View style={styles.actionIcons}>
+                  <TouchableOpacity style={styles.roundIcon} onPress={handleToggleWishlist}>
                     <MaterialIcons name={isFav ? "favorite" : "favorite-outline"} size={20} color={isFav ? "#ef4444" : "#111827"} />
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.roundIcon} onPress={() => {}}>
@@ -226,16 +329,28 @@ const { width } = Dimensions.get("window");
       </ScrollView>
     );
   }
-  
   const styles = StyleSheet.create({
     container: {
       flex: 1,
       backgroundColor: "#fff",
     },
+    carouselItem: {
+      width: width,
+      height: 300,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f9f9f9',
+    },
+    carousel: {
+      height: 300,
+    },
     image: {
       width: width, // Use full width
       height: 300,
       resizeMode: "contain",
+    },
+    actionIcons: {
+      flexDirection: "row",
     },
     imageTopBar: {
       position: "absolute",

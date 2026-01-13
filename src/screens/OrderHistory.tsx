@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, Image, Linking, Modal, Pressable } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -26,6 +26,8 @@ export default function OrderHistoryScreen() {
   const navigation = useNavigation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
 
   const fetchOrders = async () => {
     try {
@@ -52,16 +54,12 @@ export default function OrderHistoryScreen() {
     React.useCallback(() => {
       StatusBar.setBarStyle("dark-content");
       StatusBar.setBackgroundColor("#f3f4f6");
-      return () => {
-        StatusBar.setBarStyle("light-content");
-        StatusBar.setBackgroundColor("#111827");
-      };
     }, [])
   );
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#1f2937" />
       </View>
     );
@@ -78,19 +76,19 @@ export default function OrderHistoryScreen() {
           <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Orders</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {orders.length === 0 ? (
-           <View style={{ alignItems: 'center', marginTop: 40 }}>
-             <Text style={{ color: '#6b7280' }}>No orders found.</Text>
+           <View style={styles.emptyContainer}>
+             <Text style={styles.emptyText}>No orders found.</Text>
            </View>
         ) : (
           orders.map((order) => {
             const totalItems = order.items.reduce((sum, item) => sum + item.quantity, 0);
-            const statusColor = getStatusColor(order.fulfillmentStatus || order.financialStatus);
-            const displayStatus = order.fulfillmentStatus || order.financialStatus;
+            const statusColor = getStatusColor(order.deliveryStatus || order.fulfillmentStatus || order.financialStatus);
+            const displayStatus = order.deliveryStatus || order.fulfillmentStatus || order.financialStatus;
             
             return (
               <View key={order.orderId} style={styles.orderCard}>
@@ -141,13 +139,17 @@ export default function OrderHistoryScreen() {
 
                 <TouchableOpacity 
                   style={[styles.actionButton, { 
-                    borderColor: statusColor,
-                    backgroundColor: displayStatus === 'CANCELLED' ? '#fef2f2' : '#fff'
+                    borderColor: (displayStatus === 'CANCELLED' || !order.trackingUrl) ? '#e5e7eb' : statusColor,
+                    backgroundColor: (displayStatus === 'CANCELLED' || !order.trackingUrl) ? '#f9fafb' : '#fff'
                   }]}
-                  disabled={displayStatus === 'CANCELLED'}
+                  disabled={displayStatus === 'CANCELLED' || !order.trackingUrl}
+                  onPress={() => {
+                    setSelectedOrder(order);
+                    setModalVisible(true);
+                  }}
                 >
-                  <Text style={[styles.actionButtonText, { color: statusColor }]}>
-                    {displayStatus === 'CANCELLED' ? 'Cancelled' : 'Track Order'}
+                  <Text style={[styles.actionButtonText, { color: (displayStatus === 'CANCELLED' || !order.trackingUrl) ? '#9ca3af' : statusColor }]}>
+                    {displayStatus === 'CANCELLED' ? 'Cancelled' : (order.trackingUrl ? 'Track Order' : 'Order Details')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -155,6 +157,81 @@ export default function OrderHistoryScreen() {
           })
         )}
       </ScrollView>
+
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={() => setModalVisible(false)}
+      >
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Order Details</Text>
+              <Pressable onPress={() => setModalVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#1f2937" />
+              </Pressable>
+            </View>
+
+            {selectedOrder && (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                <View style={styles.modalSection}>
+                  <Text style={styles.sectionTitle}>Status</Text>
+                  <View style={styles.statusRow}>
+                     <Text style={styles.statusLabel}>Financial:</Text>
+                     <View style={[styles.statusBadge, { backgroundColor: '#e0e7ff' }]}>
+                        <Text style={[styles.statusText, { color: '#3730a3' }]}>{selectedOrder.financialStatus}</Text>
+                     </View>
+                  </View>
+                  <View style={styles.statusRow}>
+                     <Text style={styles.statusLabel}>Fulfillment:</Text>
+                     <View style={[styles.statusBadge, { backgroundColor: '#dcfce7' }]}>
+                        <Text style={[styles.statusText, { color: '#166534' }]}>{selectedOrder.fulfillmentStatus}</Text>
+                     </View>
+                  </View>
+                   <View style={styles.statusRow}>
+                     <Text style={styles.statusLabel}>Delivery:</Text>
+                     <View style={[styles.statusBadge, { backgroundColor: '#fef3c7' }]}>
+                        <Text style={[styles.statusText, { color: '#92400e' }]}>{selectedOrder.deliveryStatus || 'N/A'}</Text>
+                     </View>
+                  </View>
+                </View>
+
+                <View style={styles.modalSection}>
+                  <Text style={styles.sectionTitle}>Tracking Information</Text>
+                  <Text style={styles.detailText}><Text style={styles.boldText}>Tracking Number:</Text> {selectedOrder.trackingNumber || 'N/A'}</Text>
+                  <Text style={styles.detailText}><Text style={styles.boldText}>Company:</Text> {selectedOrder.trackingCompany || 'N/A'}</Text>
+                  {selectedOrder.trackingUrl ? (
+                      <TouchableOpacity onPress={() => {
+                          const url = selectedOrder.trackingUrl?.replace(/`/g, "").trim();
+                          if (url) Linking.openURL(url).catch(err => console.error("Couldn't load page", err));
+                      }}>
+                          <Text style={[styles.detailText, styles.linkText]}>Open Tracking Link</Text>
+                      </TouchableOpacity>
+                  ) : null}
+                </View>
+
+                 <View style={styles.modalSection}>
+                  <Text style={styles.sectionTitle}>Items</Text>
+                  {selectedOrder.items.map((item, index) => (
+                    <View key={index} style={styles.modalItem}>
+                       <Text style={styles.modalItemName}>{item.title}</Text>
+                       <Text style={styles.modalItemQty}>x{item.quantity}</Text>
+                    </View>
+                  ))}
+                </View>
+              </ScrollView>
+            )}
+            
+             <TouchableOpacity
+              style={[styles.button, styles.buttonClose]}
+              onPress={() => setModalVisible(false)}
+            >
+              <Text style={styles.textStyle}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -163,6 +240,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f3f4f6',
+  },
+  loadingContainer: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
     flexDirection: 'row',
@@ -182,9 +265,19 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1f2937',
   },
+  headerSpacer: {
+    width: 24,
+  },
   content: {
     flex: 1,
     padding: 16,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  emptyText: {
+    color: '#6b7280',
   },
   orderCard: {
     backgroundColor: '#fff',
@@ -212,6 +305,11 @@ const styles = StyleSheet.create({
   orderDate: {
     fontSize: 12,
     color: '#6b7280',
+  },
+  trackingInfo: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
   },
   statusBadge: {
     paddingHorizontal: 8,
@@ -294,6 +392,104 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalView: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  modalSection: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+    paddingBottom: 5,
+  },
+  statusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  statusLabel: {
+    width: 100,
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  detailText: {
+    fontSize: 14,
+    color: '#4b5563',
+    marginBottom: 4,
+  },
+  boldText: {
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  linkText: {
+    color: '#2563eb',
+    textDecorationLine: 'underline',
+    marginTop: 4,
+  },
+  modalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  modalItemName: {
+    flex: 1,
+    fontSize: 14,
+    color: '#4b5563',
+    marginRight: 10,
+  },
+  modalItemQty: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  button: {
+    borderRadius: 20,
+    padding: 10,
+    elevation: 2,
+    marginTop: 10,
+  },
+  buttonClose: {
+    backgroundColor: '#2196F3',
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 

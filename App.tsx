@@ -13,12 +13,15 @@ import { useCart } from "./src/context/CartContext";
 import ProductsStack from "./src/navigation/ProductsStack";
 import CartScreen from "./src/screens/Cart";
 import ProfileStack from "./src/navigation/ProfileStack";
+import WishlistScreen from "./src/screens/Wishlist";
 import CustomHeader from "./src/components/CustomHeader";
 import { StatusBar } from "react-native";
 
 enableScreens();
 
 const Tab = createBottomTabNavigator();
+
+const HeaderTitle = () => <CustomHeader title="Shopify Store" />;
 
 function AppTabs() {
   const { accessToken } = useAuth();
@@ -29,12 +32,16 @@ function AppTabs() {
         headerShown: false,
         tabBarActiveTintColor: "#2563eb",
         tabBarInactiveTintColor: "#9ca3af",
-        headerTitle: () => <CustomHeader title="Shopify Store" />,
+        headerTitle: HeaderTitle,
         tabBarLabelStyle: { fontSize: 12 },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = "home";
           if (route.name === "Shop") {
             iconName = "store";
+          } else if (route.name === "Collections") {
+            iconName = "grid-view";
+          } else if (route.name === "Wishlist") {
+            iconName = focused ? "favorite" : "favorite-outline";
           } else if (route.name === "Cart") {
             iconName = "shopping-cart";
           } else if (route.name === "Profile") {
@@ -45,6 +52,16 @@ function AppTabs() {
       })}
     >
       <Tab.Screen name="Shop" component={ProductsStack} />
+      <Tab.Screen
+        name="Collections"
+        component={ProductsStack}
+        initialParams={{ initialRouteName: "CollectionsScreen" }}
+      />
+      <Tab.Screen
+        name="Wishlist"
+        component={WishlistScreen}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen
         name="Cart"
         component={CartScreen}
@@ -75,7 +92,7 @@ export default function App() {
     <AuthProvider>
       <CartProvider>
         <NavigationContainer>
-          <StatusBar backgroundColor="#111827" barStyle="dark-content" />
+          <StatusBar backgroundColor="#f3f4f6" barStyle="dark-content" />
           <AppTabs />
         </NavigationContainer>
       </CartProvider>

@@ -8,10 +8,11 @@ import { useAuth } from "../context/AuthContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function CartScreen({ navigation }: any) {
-  const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl } = useCart();
+  // @ts-ignore - using new methods
+  const { cart, isLoading: ctxLoading, refreshCart, cartId, checkoutUrl, updateLineItemOptimistic, removeLineItemOptimistic, revertOptimisticUpdate } = useCart();
   const { accessToken } = useAuth();
-  const [loading, setLoading] = useState(false);
-  const [updatingItems, setUpdatingItems] = useState<Record<string, boolean>>({});
+  const [loading, _setLoading] = useState(false);
+  const [updatingItems, _setUpdatingItems] = useState<Record<string, boolean>>({});
   const insets=useSafeAreaInsets();
 //   console.log(insets,"insets ");
 
@@ -43,17 +44,24 @@ export default function CartScreen({ navigation }: any) {
     const newQty = currentQty + change;
     if (newQty < 1) return;
 
-    setUpdatingItems(prev => ({ ...prev, [lineId]: true }));
+    // Optimistic Update
+    const prevCart = [...cart];
+    updateLineItemOptimistic(lineId, newQty);
+    
+    // setUpdatingItems(prev => ({ ...prev, [lineId]: true })); // Don't block UI
+    
     try {
         if (cartId) {
             await updateCartLine(cartId, lineId, newQty, accessToken || undefined);
-            await refreshCart();
+            // DO NOT await refreshCart(); - Trust the optimistic update
+            // We can optionally refresh in background silently if needed, but not necessary for simple quantity change
         }
     } catch (error) {
         console.error("Update quantity failed", error);
+        revertOptimisticUpdate(prevCart);
         Alert.alert("Error", "Failed to update quantity");
     } finally {
-        setUpdatingItems(prev => ({ ...prev, [lineId]: false }));
+        // setUpdatingItems(prev => ({ ...prev, [lineId]: false }));
     }
   };
 
@@ -67,23 +75,29 @@ export default function CartScreen({ navigation }: any) {
                 text: "Remove", 
                 style: "destructive",
                 onPress: async () => {
-                    setLoading(true);
+                    // Optimistic Remove
+                    const prevCart = [...cart];
+                    removeLineItemOptimistic(lineId);
+                    
+                    // setLoading(true); // Don't block UI
                     try {
                         if (cartId) {
                             await removeCartLine(cartId, lineId, accessToken || undefined);
-                            await refreshCart();
+                            // await refreshCart(); // Trust optimistic
                         }
                     } catch (error) {
                         console.error("Remove item failed", error);
+                        revertOptimisticUpdate(prevCart);
                         Alert.alert("Error", "Failed to remove item");
                     } finally {
-                        setLoading(false);
+                        // setLoading(false);
                     }
                 }
             }
         ]
     );
   };
+
 
   const handleCheckout = () => {
       if (!checkoutUrl) {
@@ -206,7 +220,7 @@ export default function CartScreen({ navigation }: any) {
         />
         
         <View style={styles.checkoutFooter}>  
-            <View style={[styles.summaryRow, { marginBottom: 20 }]}>
+            <View style={styles.totalRow}>
                 <Text style={styles.totalLabel}>Total</Text>
                 <Text style={styles.totalValue}>₹{total.toFixed(2)}</Text>
             </View>
@@ -452,6 +466,12 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         color: '#1f2937',
+    },
+    totalRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     totalLabel: {
         fontSize: 18,

@@ -1,4 +1,5 @@
 import { API } from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Product {
     id: string;
@@ -94,23 +95,19 @@ export interface Product {
     return data.map(mapIncomingProduct);
   };
   
-  export const getProducts = async (): Promise<Product[]> => {
-    const res = await API.get("/api/storefront/products/all");
-  
-    return res.data.map((p: any) => ({
-      id: p.id,
-      variantId: p.variantId,
-      variantTitle: p.variantTitle,
-      title: p.title,
-      handle: p.handle,
-      price: p.price,
-      availableForSale: p.availableForSale,
-      quantityAvailable: p.quantityAvailable,
-      description: p.description,
-      featuredImage: p.featuredImage,
-      images: p.images || []
-    }));
-  };
+export const getProducts = async (): Promise<Product[]> => {
+  const res = await API.get("/api/storefront/products/all");
+
+  const data = Array.isArray(res.data)
+    ? res.data
+    : Array.isArray(res.data?.items)
+    ? res.data.items
+    : Array.isArray(res.data?.data)
+    ? res.data.data
+    : [];
+
+  return data.map(mapIncomingProduct);
+};
 
   export const predictiveSearch = async (query: string): Promise<PredictiveSuggestion[]> => {
     if (!query || !query.trim()) return [];
@@ -161,11 +158,47 @@ export interface Product {
     }
   };
 
+  // Simple in-memory cache
+  const cache: {
+    bestSellers: Product[] | null;
+    newArrivals: Product[] | null;
+    timestamp: number;
+  } = {
+    bestSellers: null,
+    newArrivals: null,
+    timestamp: 0,
+  };
+  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
   export const getBestSellers = async (): Promise<Product[]> => {
+    const now = Date.now();
+    if (cache.bestSellers && (now - cache.timestamp < CACHE_DURATION)) {
+      return cache.bestSellers;
+    }
+    try {
+      const s = await AsyncStorage.getItem("cache:bestSellers:v1");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed?.items) && typeof parsed?.ts === "number" && (now - parsed.ts < CACHE_DURATION)) {
+          const items = parsed.items.map(mapIncomingProduct);
+          cache.bestSellers = items;
+          cache.timestamp = parsed.ts;
+          return items;
+        }
+      }
+    } catch {}
+
     try {
       const res = await API.get("/api/products/best-sellers");
       const data = Array.isArray(res.data) ? res.data : [];
-      return data.map(mapIncomingProduct);
+      const mapped = data.map(mapIncomingProduct);
+      
+      // Update Cache
+      cache.bestSellers = mapped;
+      cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:bestSellers:v1", JSON.stringify({ items: data, ts: now })); } catch {}
+      
+      return mapped;
     } catch {
       const all = await getProducts();
       const sorted = [...all].sort((a, b) => {
@@ -173,6 +206,56 @@ export interface Product {
         const bv = (b.images?.length || 0) + (b.availableForSale ? 1 : 0);
         return bv - av;
       });
-      return sorted.slice(0, 8);
+      const fallback = sorted.slice(0, 8);
+      
+      // Update Cache
+      cache.bestSellers = fallback;
+      cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:bestSellers:v1", JSON.stringify({ items: fallback, ts: now })); } catch {}
+      
+      return fallback;
     }
   };
+
+  export const getNewArrivals = async (): Promise<Product[]> => {
+    const now = Date.now();
+    if (cache.newArrivals && (now - cache.timestamp < CACHE_DURATION)) {
+      return cache.newArrivals;
+    }
+    try {
+      const s = await AsyncStorage.getItem("cache:newArrivals:v1");
+      if (s) {
+        const parsed = JSON.parse(s);
+        if (Array.isArray(parsed?.items) && typeof parsed?.ts === "number" && (now - parsed.ts < CACHE_DURATION)) {
+          const items = parsed.items.map(mapIncomingProduct);
+          cache.newArrivals = items;
+          cache.timestamp = parsed.ts;
+          return items;
+        }
+      }
+    } catch {}
+
+    try {
+      const res = await API.get("/api/products/new-arrivals");
+      const data = Array.isArray(res.data) ? res.data : [];
+      const mapped = data.map(mapIncomingProduct);
+
+      // Update Cache
+      cache.newArrivals = mapped;
+      cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:newArrivals:v1", JSON.stringify({ items: data, ts: now })); } catch {}
+
+      return mapped;
+    } catch {
+      const all = await getProducts();
+      const fallback = all.slice(0, 8);
+      
+      // Update Cache
+      cache.newArrivals = fallback;
+      cache.timestamp = now;
+      try { await AsyncStorage.setItem("cache:newArrivals:v1", JSON.stringify({ items: fallback, ts: now })); } catch {}
+
+      return fallback;
+    }
+  };
+
