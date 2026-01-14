@@ -5,23 +5,26 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  Image,
   Alert,
   ScrollView,
 } from "react-native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import CustomHeader from "../components/CustomHeader";
 import SearchOverlay from "../components/SearchOverlay";
-import { CategoryCardSkeleton, CategoryChipSkeleton } from "../components/Skeletons";
+import { CategoryChipSkeleton } from "../components/Skeletons";
 import {
-  getProductCollections,
   ProductCollection,
   searchProducts,
+  getMenu,
+  MenuResponse,
+  MenuItem,
+  getCollectionByHandle,
 } from "../api/products";
 
 export default function CollectionsScreen({ navigation }: any) {
-  const [categories, setCategories] = useState<ProductCollection[]>([]);
-  const [filteredCategories, setFilteredCategories] = useState<ProductCollection[]>([]);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [loading, setLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
@@ -29,11 +32,11 @@ export default function CollectionsScreen({ navigation }: any) {
   useEffect(() => {
     let isActive = true;
     setLoading(true);
-    getProductCollections()
+    getMenu()
       .then((data) => {
         if (!isActive) return;
-        setCategories(data);
-        setFilteredCategories(data);
+        setMenu(data);
+        setSelectedIndex(0);
       })
       .catch((err) => console.error(err))
       .finally(() => {
@@ -44,20 +47,6 @@ export default function CollectionsScreen({ navigation }: any) {
       isActive = false;
     };
   }, []);
-
-  useEffect(() => {
-    if (searchQuery) {
-      const lower = searchQuery.toLowerCase();
-      const filtered = categories.filter(
-        (c) =>
-          c.categoryTitle?.toLowerCase().includes(lower) ||
-          c.categoryHandle?.toLowerCase().includes(lower)
-      );
-      setFilteredCategories(filtered);
-    } else {
-      setFilteredCategories(categories);
-    }
-  }, [searchQuery, categories]);
 
   const handleSubmitSearch = async (q: string) => {
     const query = q.trim();
@@ -83,65 +72,85 @@ export default function CollectionsScreen({ navigation }: any) {
     }
   };
 
-  const renderCategoryChip = ({ item }: { item: ProductCollection }) => {
-    const img = item.categoryImage?.url;
+  const openMenuItem = async (item: MenuItem) => {
+    const handle = String(item?.collection?.handle || "").trim();
+    const title = String(item?.collection?.title || item.title || "").trim();
+    setLoading(true);
+    try {
+      let category: ProductCollection | null = null;
+      if (handle) {
+        category = await getCollectionByHandle(handle);
+      }
+      if (!category) {
+        const results = await searchProducts(title || handle || item.title);
+        category = {
+          categoryId: String(item.id),
+          categoryTitle: title || item.title,
+          categoryHandle: handle || title || item.title,
+          categoryImage:
+            item?.collection?.image && (item.collection.image as any)?.url
+              ? { url: String((item.collection.image as any).url) }
+              : undefined,
+          products: results,
+        };
+      }
+      navigation.navigate("ProductList", { category, products: category.products });
+    } catch {
+      Alert.alert("Error", "Failed to load products.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const renderTopChip = ({ item, index }: { item: MenuItem; index: number }) => {
     return (
       <TouchableOpacity
-        style={styles.catChip}
-        onPress={() =>
-          navigation.navigate("ProductList", { category: item, products: item.products || [] })
-        }
+        style={[styles.tabChip, selectedIndex === index ? styles.tabChipActive : null]}
+        onPress={() => setSelectedIndex(index)}
       >
-        <View style={styles.catChipImageWrap}>
-          {img ? (
-            <Image source={{ uri: img }} style={styles.catChipImage} />
-          ) : (
-            <View style={styles.catChipPlaceholder}>
-              <MaterialIcons name="image" size={18} color="#9ca3af" />
-            </View>
-          )}
-        </View>
-        <Text style={styles.catChipLabel} numberOfLines={1}>
-          {item.categoryTitle || item.categoryHandle}
+        <Text style={[styles.tabChipLabel, selectedIndex === index ? styles.tabChipLabelActive : null]} numberOfLines={1}>
+          {item.title}
         </Text>
       </TouchableOpacity>
     );
   };
 
-  const renderCategoryCard = ({ item }: { item: ProductCollection }) => {
-    const img = item.categoryImage?.url;
+  const renderListItem = ({ item }: { item: MenuItem }) => {
+    const hasChildren = Array.isArray(item.subItems) && item.subItems.length > 0;
+    const isExpanded = expanded[item.id];
     return (
-      <TouchableOpacity
-        style={styles.categoryCardWrapper}
-        activeOpacity={0.8}
-        onPress={() =>
-          navigation.navigate("ProductList", { category: item, products: item.products || [] })
-        }
-      >
-        <View style={styles.card}>
-          <View style={styles.imageWrapper}>
-            {img ? (
-              <Image source={{ uri: img }} style={styles.image} />
-            ) : (
-              <View style={styles.placeholder}>
-                <MaterialIcons name="image" size={24} color="#9ca3af" />
-              </View>
-            )}
+      <View>
+        <TouchableOpacity
+          style={styles.listRow}
+          onPress={() => {
+            if (hasChildren) {
+              setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+            } else {
+              openMenuItem(item);
+            }
+          }}
+        >
+          <Text style={styles.listRowText}>{item.title}</Text>
+          <MaterialIcons name={hasChildren ? (isExpanded ? "expand-less" : "chevron-right") : "chevron-right"} size={20} color="#111" />
+        </TouchableOpacity>
+        {hasChildren && isExpanded ? (
+          <View style={styles.childList}>
+            {item.subItems.map((child) => (
+              <TouchableOpacity key={child.id} style={styles.childRow} onPress={() => openMenuItem(child)}>
+                <Text style={styles.childRowText}>{child.title}</Text>
+                <MaterialIcons name="chevron-right" size={18} color="#111" />
+              </TouchableOpacity>
+            ))}
           </View>
-          <Text style={styles.title} numberOfLines={2}>
-            {item.categoryTitle || item.categoryHandle}
-          </Text>
-        </View>
-      </TouchableOpacity>
+        ) : null}
+      </View>
     );
   };
-
-  const NUM_COLUMNS = 2;
 
   return (
     <View style={styles.container}>
       <CustomHeader
-        title="Collections"
+        title={menu?.title || "Collections"}
         value={searchQuery}
         searchEnabled
         onSearch={setSearchQuery}
@@ -183,61 +192,45 @@ export default function CollectionsScreen({ navigation }: any) {
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>Browse Categories</Text>
-        </View>
-
-        {loading ? (
+        {loading || !menu ? (
           <FlatList
-            data={[1, 2, 3, 4, 5]}
+            data={[1, 2, 3, 4]}
             horizontal
             showsHorizontalScrollIndicator={false}
             renderItem={() => <CategoryChipSkeleton />}
             keyExtractor={(item) => `skeleton-chip-${item}`}
-            contentContainerStyle={styles.catChipsRow}
+            contentContainerStyle={styles.tabsRow}
           />
         ) : (
           <FlatList
-            data={categories}
+            data={menu.items}
             horizontal
             showsHorizontalScrollIndicator={false}
-            renderItem={renderCategoryChip}
-            keyExtractor={(item) => item.categoryId + "_chip"}
-            contentContainerStyle={styles.catChipsRow}
+            renderItem={({ item, index }) => renderTopChip({ item, index })}
+            keyExtractor={(item, idx) => item.id + "_" + idx}
+            contentContainerStyle={styles.tabsRow}
           />
         )}
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>
-            {searchQuery ? `Collections (${filteredCategories.length})` : "All Collections"}
+            {menu?.items?.[selectedIndex]?.title || ""}
           </Text>
         </View>
 
         <View style={styles.gridContainer}>
-          {loading ? (
+          {loading || !menu ? null : (
             <FlatList
-              data={[1, 2, 3, 4, 5, 6]}
-              numColumns={NUM_COLUMNS}
-              key={`grid-skeleton-${NUM_COLUMNS}`}
-              renderItem={() => <CategoryCardSkeleton />}
-              keyExtractor={(item) => `skeleton-grid-${item}`}
+              data={menu.items[selectedIndex]?.subItems || []}
+              key={`list-${selectedIndex}`}
+              renderItem={renderListItem}
+              keyExtractor={(item) => item.id}
               scrollEnabled={false}
-              columnWrapperStyle={NUM_COLUMNS > 1 ? styles.columnWrapper : undefined}
-            />
-          ) : (
-            <FlatList
-              data={filteredCategories}
-              numColumns={NUM_COLUMNS}
-              key={`grid-${NUM_COLUMNS}`}
-              renderItem={renderCategoryCard}
-              keyExtractor={(item) => item.categoryId}
-              scrollEnabled={false}
-              columnWrapperStyle={NUM_COLUMNS > 1 ? styles.columnWrapper : undefined}
               ListEmptyComponent={
                 <View style={styles.emptyContainer}>
                   <MaterialIcons name="search-off" size={44} color="#9ca3af" />
-                  <Text style={styles.emptyTitle}>No collections found</Text>
-                  <Text style={styles.emptySubtitle}>Try a different search.</Text>
+                  <Text style={styles.emptyTitle}>No items found</Text>
+                  <Text style={styles.emptySubtitle}>Try a different tab.</Text>
                 </View>
               }
             />
@@ -277,58 +270,70 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#111",
   },
-  catChipsRow: {
+  tabsRow: {
     paddingLeft: 12,
-    paddingBottom: 4,
-    gap: 12,
+    paddingBottom: 8,
+    gap: 8,
   },
-  catChip: { alignItems: "center", width: 80 },
-  catChipImageWrap: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderColor: "#eee",
+  tabChip: {
+    borderColor: "#e5e7eb",
     borderWidth: 1,
-    overflow: "hidden",
-    alignItems: "center",
-    justifyContent: "center",
     backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 8,
   },
-  catChipImage: { width: "100%", height: "100%" },
-  catChipPlaceholder: { flex: 1, justifyContent: "center", alignItems: "center" },
-  catChipLabel: { marginTop: 6, fontSize: 12, fontWeight: "700", color: "#111" },
-  categoryCardWrapper: {
-    width: "48%",
-    marginBottom: 16,
+  tabChipActive: {
+    backgroundColor: "#111",
+    borderColor: "#111",
   },
-  columnWrapper: {
-    justifyContent: "space-between",
-    marginBottom: 16,
+  tabChipLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111",
   },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    padding: 12,
-    elevation: 3,
-    shadowColor: "#000",
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+  tabChipLabelActive: {
+    color: "#fff",
   },
-  imageWrapper: {
+  listRow: {
     backgroundColor: "#fff",
     borderRadius: 10,
-    width: "100%",
-    height: 170,
-    overflow: "hidden",
     borderWidth: 1,
     borderColor: "#e5e7eb",
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    marginBottom: 8,
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "space-between",
   },
-  image: { width: "100%", height: "100%", resizeMode: "cover" },
-  placeholder: { width: "100%", height: "100%", alignItems: "center", justifyContent: "center" },
-  title: { fontSize: 16, color: "#111", marginTop: 8, fontWeight: "700" },
+  listRowText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111",
+  },
+  childList: {
+    marginLeft: 8,
+    marginBottom: 8,
+  },
+  childRow: {
+    backgroundColor: "#fff",
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  childRowText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#111",
+  },
   emptyContainer: {
     paddingVertical: 28,
     alignItems: "center",

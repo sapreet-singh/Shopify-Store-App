@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { View, Text, TouchableOpacity, ScrollView, Alert, StyleSheet, FlatList, Dimensions } from "react-native";
 import { useFocusEffect } from "@react-navigation/native";
 import { addToCart, buyProduct, createCart } from "../api/cart";
@@ -123,7 +123,9 @@ const { width } = Dimensions.get("window");
       }
     };
   
-    const images = product?.images?.length ? product.images : (product.featuredImage ? [product.featuredImage] : []);
+    const images = useMemo(() => {
+      return product?.images?.length ? product.images : (product.featuredImage ? [product.featuredImage] : []);
+    }, [product.images, product.featuredImage]);
     const isOutOfStock = !product.availableForSale || product.quantityAvailable === 0;
 
     const refreshIsFav = useCallback(async () => {

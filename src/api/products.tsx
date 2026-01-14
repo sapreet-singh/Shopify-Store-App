@@ -39,6 +39,25 @@ export interface Product {
     query?: string;
   }
   
+  export interface MenuItem {
+    id: string;
+    title: string;
+    url?: string;
+    collection?: {
+      id?: string | null;
+      handle?: string;
+      title?: string;
+      image?: { url?: string } | null;
+    } | null;
+    subItems: MenuItem[];
+  }
+  
+  export interface MenuResponse {
+    id: string;
+    title: string;
+    items: MenuItem[];
+  }
+  
   const normalizeUrl = (u?: string) => {
     if (!u) return undefined;
     return u.replace(/[`"' ]/g, "");
@@ -87,6 +106,59 @@ export interface Product {
         products: items
       };
     });
+  };
+  
+  export const getMenu = async (): Promise<MenuResponse | null> => {
+    const res = await API.get("/api/products/menu");
+    const data = res?.data;
+    if (!data || typeof data !== "object") return null;
+    const mapItem = (it: any): MenuItem => {
+      const imgUrl =
+        typeof it?.collection?.image === "string"
+          ? { url: normalizeUrl(it.collection.image)! }
+          : it?.collection?.image?.url
+          ? { url: normalizeUrl(it.collection.image.url)! }
+          : undefined;
+      return {
+        id: String(it.id || ""),
+        title: String(it.title || ""),
+        url: typeof it.url === "string" ? it.url : undefined,
+        collection: it.collection
+          ? {
+              id: it.collection.id ?? null,
+              handle: it.collection.handle,
+              title: it.collection.title,
+              image: imgUrl ? { url: imgUrl.url } : undefined,
+            }
+          : null,
+        subItems: Array.isArray(it.subItems) ? it.subItems.map(mapItem) : [],
+      };
+    };
+    return {
+      id: String(data.id || ""),
+      title: String(data.title || ""),
+      items: Array.isArray(data.items) ? data.items.map(mapItem) : [],
+    };
+  };
+  
+  export const getCollectionByHandle = async (handle: string): Promise<ProductCollection | null> => {
+    const res = await API.get("/api/products/collection/product", { params: { handle } });
+    const d = res?.data;
+    if (!d || typeof d !== "object") return null;
+    const img =
+      typeof d.image === "string"
+        ? { url: normalizeUrl(d.image)! }
+        : d.image && d.image.url
+        ? { url: normalizeUrl(d.image.url)! }
+        : undefined;
+    const items = Array.isArray(d.products) ? d.products.map(mapIncomingProduct) : [];
+    return {
+      categoryId: String(d.id || handle || ""),
+      categoryTitle: String(d.title || handle || ""),
+      categoryHandle: String(d.handle || handle || ""),
+      categoryImage: img,
+      products: items,
+    };
   };
   
   export const searchProducts = async (query: string): Promise<Product[]> => {
