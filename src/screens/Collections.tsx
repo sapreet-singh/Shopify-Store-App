@@ -117,14 +117,15 @@ export default function CollectionsScreen({ navigation }: any) {
 
   const renderListItem = ({ item }: { item: MenuItem }) => {
     const hasChildren = Array.isArray(item.subItems) && item.subItems.length > 0;
-    const isExpanded = expanded[item.id];
+    const key = String(item.id);
+    const isExpanded = !!expanded[key];
     return (
       <View>
         <TouchableOpacity
           style={styles.listRow}
           onPress={() => {
             if (hasChildren) {
-              setExpanded((prev) => ({ ...prev, [item.id]: !prev[item.id] }));
+              setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
             } else {
               openMenuItem(item);
             }
@@ -136,7 +137,7 @@ export default function CollectionsScreen({ navigation }: any) {
         {hasChildren && isExpanded ? (
           <View style={styles.childList}>
             {item.subItems.map((child) => (
-              <TouchableOpacity key={child.id} style={styles.childRow} onPress={() => openMenuItem(child)}>
+              <TouchableOpacity key={String(child.id)} style={styles.childRow} onPress={() => openMenuItem(child)}>
                 <Text style={styles.childRowText}>{child.title}</Text>
                 <MaterialIcons name="chevron-right" size={18} color="#111" />
               </TouchableOpacity>
@@ -213,22 +214,21 @@ export default function CollectionsScreen({ navigation }: any) {
         )}
 
         <View style={styles.gridContainer}>
-          {loading || !menu ? null : (
-            <FlatList
-              data={menu.items[selectedIndex]?.subItems || []}
-              key={`list-${selectedIndex}`}
-              renderItem={renderListItem}
-              keyExtractor={(item) => item.id}
-              scrollEnabled={false}
-              ListEmptyComponent={
+          {loading || !menu
+            ? null
+            : (menu.items[selectedIndex]?.subItems || []).length > 0
+            ? (
+                <View key={`list-${selectedIndex}`}>
+                  {menu.items[selectedIndex]?.subItems?.map((it) => renderListItem({ item: it }))}
+                </View>
+              )
+            : (
                 <View style={styles.emptyContainer}>
                   <MaterialIcons name="search-off" size={44} color="#9ca3af" />
                   <Text style={styles.emptyTitle}>No items found</Text>
                   <Text style={styles.emptySubtitle}>Try a different tab.</Text>
                 </View>
-              }
-            />
-          )}
+              )}
         </View>
 
         <View style={styles.footerSpacer} />
@@ -267,7 +267,6 @@ const styles = StyleSheet.create({
   tabsRow: {
     paddingLeft: 12,
     paddingBottom: 8,
-    gap: 8,
   },
   tabChip: {
     borderColor: "#e5e7eb",
