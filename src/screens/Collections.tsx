@@ -150,7 +150,7 @@ export default function CollectionsScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <CustomHeader
-        title={menu?.title || "Collections"}
+        title={"Collections"}
         value={searchQuery}
         searchEnabled
         onSearch={setSearchQuery}
@@ -211,12 +211,6 @@ export default function CollectionsScreen({ navigation }: any) {
             contentContainerStyle={styles.tabsRow}
           />
         )}
-
-        <View style={styles.sectionHeaderRow}>
-          <Text style={styles.sectionTitle}>
-            {menu?.items?.[selectedIndex]?.title || ""}
-          </Text>
-        </View>
 
         <View style={styles.gridContainer}>
           {loading || !menu ? null : (

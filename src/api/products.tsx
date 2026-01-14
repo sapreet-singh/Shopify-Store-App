@@ -87,26 +87,6 @@ export interface Product {
     };
   };
   
-  export const getProductCollections = async (): Promise<ProductCollection[]> => {
-    const res = await API.get("/api/products/categories");
-    const data = Array.isArray(res.data) ? res.data : [];
-    return data.map((c: any) => {
-      const catImage =
-        typeof c.categoryImage === "string"
-          ? { url: normalizeUrl(c.categoryImage)! }
-          : c.categoryImage && c.categoryImage.url
-          ? { url: normalizeUrl(c.categoryImage.url)! }
-          : undefined;
-      const items = Array.isArray(c.products) ? c.products.map(mapIncomingProduct) : [];
-      return {
-        categoryId: c.categoryId,
-        categoryTitle: c.categoryTitle,
-        categoryHandle: c.categoryHandle,
-        categoryImage: catImage,
-        products: items
-      };
-    });
-  };
   
   export const getMenu = async (): Promise<MenuResponse | null> => {
     const res = await API.get("/api/products/menu");
