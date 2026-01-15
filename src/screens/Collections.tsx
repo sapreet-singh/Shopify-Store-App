@@ -120,7 +120,7 @@ export default function CollectionsScreen({ navigation }: any) {
     const key = String(item.id);
     const isExpanded = !!expanded[key];
     return (
-      <View>
+      <View key={key}>
         <TouchableOpacity
           style={styles.listRow}
           onPress={() => {

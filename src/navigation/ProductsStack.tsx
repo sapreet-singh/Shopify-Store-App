@@ -8,6 +8,7 @@ import CheckoutWebview from "../screens/CheckoutWebview";
 import LoginScreen from "../screens/Login";
 import RegisterScreen from "../screens/Register";
 import CustomHeader from "../components/CustomHeader";
+import CartScreen from "../screens/Cart";
 
 const Stack = createNativeStackNavigator();
 
@@ -38,6 +39,7 @@ export default function ProductsStack({ route }: any) {
         options={{ 
           headerShown: false,
         }}
+        initialParams={route?.params}
       />
       <Stack.Screen 
         name="ProductDetails" 
@@ -48,6 +50,11 @@ export default function ProductsStack({ route }: any) {
         name="Checkout" 
         component={CheckoutWebview} 
         options={{ headerTitle: CheckoutHeader }}
+      />
+      <Stack.Screen 
+        name="Cart" 
+        component={CartScreen} 
+        options={{ headerShown: false }}
       />
       <Stack.Screen 
         name="Login" 

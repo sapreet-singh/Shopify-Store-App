@@ -1,13 +1,14 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
-import { getBestSellers, getNewArrivals, Product, ProductCollection, searchProducts, } from "../api/products";
+import { getBestSellers, Product, ProductCollection, searchProducts, } from "../api/products";
 
 import CustomHeader from "../components/CustomHeader";
 import { ProductCardSkeleton } from "../components/Skeletons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
 import FastImage from "react-native-fast-image";
+import { useCart } from "../context/CartContext";
 
 const { width } = Dimensions.get("window");
 const HERO_WIDTH = width - 24;
@@ -27,13 +28,12 @@ const heroImages = [
 ];
 
 export default function HomeScreen({ navigation }: any) {
+  const { cartCount } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
   const [_searchLoading, setSearchLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [bestSellers, setBestSellers] = useState<Product[]>([]);
-  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [loadingBestSellers, setLoadingBestSellers] = useState(false);
-  const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -68,17 +68,6 @@ export default function HomeScreen({ navigation }: any) {
         setLoadingBestSellers(false);
       });
 
-    setLoadingNewArrivals(true);
-    getNewArrivals()
-      .then((data) => {
-        if (!isActive) return;
-        setNewArrivals(data);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!isActive) return;
-        setLoadingNewArrivals(false);
-      });
 
     return () => {
       isActive = false;
@@ -165,15 +154,7 @@ export default function HomeScreen({ navigation }: any) {
     }
   }, [bestSellers]);
 
-  useEffect(() => {
-    const naUris = newArrivals
-      .map((p) => p.featuredImage?.url)
-      .filter(Boolean)
-      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
-    if (naUris.length > 0) {
-      FastImage.preload(naUris as any);
-    }
-  }, [newArrivals]);
+  
 
   return (
     <View style={styles.container}>
@@ -182,6 +163,9 @@ export default function HomeScreen({ navigation }: any) {
         title="Home"
         value={searchQuery}
         searchEnabled
+        showCart
+        cartCount={cartCount}
+        onCartPress={() => navigation.navigate("Cart")}
         onSearch={setSearchQuery}
         onFocus={() => setShowSearchOverlay(true)}
         onSubmit={handleSubmitSearch}
@@ -347,47 +331,7 @@ export default function HomeScreen({ navigation }: any) {
           )}
         </View>
 
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>New Arrivals</Text>
-            <TouchableOpacity
-              disabled={newArrivals.length === 0}
-              onPress={() => handleViewAll("New Arrivals", newArrivals, "new-arrivals")}
-            >
-              <Text
-                style={[
-                  styles.sectionAction,
-                  newArrivals.length === 0 && styles.sectionActionDisabled,
-                ]}
-              >
-                See all
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {loadingNewArrivals ? (
-            <FlatList
-              data={[1, 2, 3]}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={() => <ProductCardSkeleton />}
-              keyExtractor={(item) => `skeleton-${item}`}
-              contentContainerStyle={styles.sectionList}
-            />
-          ) : (
-            <FlatList
-              data={newArrivals}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={renderHomeProduct}
-              keyExtractor={keyExtractor}
-              contentContainerStyle={styles.sectionList}
-              initialNumToRender={10}
-              maxToRenderPerBatch={10}
-              windowSize={7}
-              removeClippedSubviews
-            />
-          )}
-        </View>
+        
 
         <View style={styles.footerSpacer} />
       </ScrollView>

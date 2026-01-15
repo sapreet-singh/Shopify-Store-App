@@ -28,6 +28,7 @@ export default function ProductsScreen({ navigation, route }: any) {
   const [addedToCart, setAddedToCart] = useState<Record<string, boolean>>({});
   const { accessToken, user } = useAuth();
   const { cartId, setCartId, refreshCart } = useCart();
+  const { cartCount } = useCart();
   const listType = route?.params?.listType;
 
   const catParam = route?.params?.category;
@@ -317,6 +318,14 @@ export default function ProductsScreen({ navigation, route }: any) {
           <Text style={styles.backText}>Collections</Text>
         </TouchableOpacity>
         <Text style={styles.categoryTitle}>{selectedCategory.categoryTitle}</Text>
+        <TouchableOpacity style={styles.cartBtn} onPress={() => navigation.navigate("Cart")}>
+          <MaterialIcons name="shopping-cart" size={20} color="#111827" />
+          {cartCount > 0 && (
+            <View style={styles.cartBadge}>
+              <Text style={styles.cartBadgeText}>{cartCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
       </View>
       <FlatList
         data={filteredProducts}
@@ -499,6 +508,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#374151",
     fontWeight: "600",
+  },
+  cartBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    backgroundColor: "#fff",
+    position: "relative",
+  },
+  cartBadge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#2563eb",
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cartBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
   },
   homeHeader: {
     paddingBottom: 12,
