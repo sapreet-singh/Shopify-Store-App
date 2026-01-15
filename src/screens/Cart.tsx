@@ -24,13 +24,13 @@ export default function CartScreen({ navigation }: any) {
           "Cart dekhne ke liye pehle login karein.",
           [
             { 
-              text: "Login", 
-              onPress: () => navigation.navigate('Shop', { screen: 'Login' })
+                  text: "Login",
+                  onPress: () => navigation.navigate('Login')
             },
             { 
               text: "Cancel", 
               style: "cancel",
-              onPress: () => navigation.navigate('Shop')
+                  onPress: () => navigation.navigate('Home')
             }
           ]
         );
@@ -104,10 +104,7 @@ export default function CartScreen({ navigation }: any) {
           Alert.alert("Error", "Checkout URL not available. Please refresh the cart.");
           return;
       }
-      navigation.navigate('Shop', { 
-          screen: 'Checkout', 
-          params: { url: checkoutUrl } 
-      });
+        navigation.navigate('Checkout', { url: checkoutUrl });
   };
 
   if (ctxLoading && cart.length === 0) {
@@ -127,7 +124,7 @@ export default function CartScreen({ navigation }: any) {
         </View>
         <Text style={styles.emptyTitle}>Your Cart is Empty</Text>
         <Text style={styles.emptySubtitle}>Looks like you haven't added anything to your cart yet.</Text>
-        <TouchableOpacity style={styles.shopNowBtn} onPress={() => navigation.navigate("Shop")}>
+        <TouchableOpacity style={styles.shopNowBtn} onPress={() => navigation.navigate("Home")}>
             <Text style={styles.shopNowBtnText}>Start Shopping</Text>
         </TouchableOpacity>
       </View>

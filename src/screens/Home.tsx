@@ -1,16 +1,34 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
-import { getBestSellers, getNewArrivals, Product, ProductCollection, searchProducts, } from "../api/products";
+import { Product, ProductCollection, searchProducts, getMenu, MenuResponse, MenuItem, getCollectionByHandle, getNewArrivals } from "../api/products";
 
 import CustomHeader from "../components/CustomHeader";
-import { ProductCardSkeleton } from "../components/Skeletons";
+import { CategoryChipSkeleton } from "../components/Skeletons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
 import FastImage from "react-native-fast-image";
+import { useCart } from "../context/CartContext";
 
 const { width } = Dimensions.get("window");
 const HERO_WIDTH = width - 24;
+
+const formatPrice = (v: number | string) => {
+  const n = Number(v);
+  if (isNaN(n)) return `₹${String(v)}`;
+  const hasDecimals = Math.round(n) !== n;
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+      maximumFractionDigits: hasDecimals ? 2 : 0,
+    }).format(n);
+  } catch {
+    const amount = hasDecimals ? n.toFixed(2) : String(Math.round(n));
+    return `₹${amount}`;
+  }
+};
 
 const optimizeShopifyUrl = (u?: string, w: number = 400) => {
   if (!u) return undefined;
@@ -27,13 +45,26 @@ const heroImages = [
 ];
 
 export default function HomeScreen({ navigation }: any) {
+  const { cartCount } = useCart();
   const [searchQuery, setSearchQuery] = useState("");
   const [_searchLoading, setSearchLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
-  const [bestSellers, setBestSellers] = useState<Product[]>([]);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [seriesItems, setSeriesItems] = useState<MenuItem[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
-  const [loadingBestSellers, setLoadingBestSellers] = useState(false);
-  const [loadingNewArrivals, setLoadingNewArrivals] = useState(false);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [tabItems, setTabItems] = useState<Product[]>([]);
+  const [loadingTabs, setLoadingTabs] = useState(false);
+  const [sunglassesTabIndex, setSunglassesTabIndex] = useState(0);
+  const [sunglassesItems, setSunglassesItems] = useState<Product[]>([]);
+  const [loadingSunglasses, setLoadingSunglasses] = useState(false);
+  const [lifestyleTabIndex, setLifestyleTabIndex] = useState(0);
+  const [lifestyleItems, setLifestyleItems] = useState<Product[]>([]);
+  const [loadingLifestyle, setLoadingLifestyle] = useState(false);
+  const [stylesTabIndex, setStylesTabIndex] = useState(0);
+  const [stylesItems, setStylesItems] = useState<Product[]>([]);
+  const [loadingStyles, setLoadingStyles] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -56,34 +87,233 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     let isActive = true;
-    setLoadingBestSellers(true);
-    getBestSellers()
-      .then((data) => {
+    setLoadingMenu(true);
+    getMenu()
+      .then((m) => {
         if (!isActive) return;
-        setBestSellers(data);
+        setMenu(m);
+        const collected: MenuItem[] = [];
+        for (const it of m?.items || []) {
+          for (const s of it.subItems || []) {
+            collected.push(s);
+            if (collected.length >= 4) break;
+          }
+          if (collected.length >= 4) break;
+        }
+        setSeriesItems(collected);
+        const accIdx = Math.max(0, (m?.items || []).findIndex((x) => /accessor/i.test(x.title)));
+        const base = (m?.items || [])[accIdx];
+        if (base && base.subItems && base.subItems.length > 0) {
+          setTabIndex(0);
+        }
       })
       .catch(() => undefined)
       .finally(() => {
         if (!isActive) return;
-        setLoadingBestSellers(false);
+        setLoadingMenu(false);
       });
-
-    setLoadingNewArrivals(true);
-    getNewArrivals()
-      .then((data) => {
-        if (!isActive) return;
-        setNewArrivals(data);
-      })
-      .catch(() => undefined)
-      .finally(() => {
-        if (!isActive) return;
-        setLoadingNewArrivals(false);
-      });
-
     return () => {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    getNewArrivals()
+      .then((items) => {
+        if (!isActive) return;
+        setNewArrivals(items);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!isActive) return;
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const openMenuItem = useCallback(async (item: MenuItem) => {
+    const handle = String(item?.collection?.handle || "").trim();
+    const title = String(item?.collection?.title || item.title || "").trim();
+    try {
+      let category: ProductCollection | null = null;
+      if (handle) {
+        category = await getCollectionByHandle(handle);
+      }
+      if (!category) {
+        const results = await searchProducts(title || handle || item.title);
+        category = {
+          categoryId: String(item.id),
+          categoryTitle: title || item.title,
+          categoryHandle: handle || title || item.title,
+          categoryImage:
+            item?.collection?.image && (item.collection.image as any)?.url
+              ? { url: String((item.collection.image as any).url) }
+              : undefined,
+          products: results,
+        };
+      }
+      navigation.navigate("ProductList", { category, products: category.products });
+    } catch {}
+  }, [navigation]);
+
+  const loadTabItems = useCallback(async () => {
+    const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
+    const child = accBase?.subItems?.[tabIndex];
+    if (!child) {
+      setTabItems([]);
+      return;
+    }
+    setLoadingTabs(true);
+    try {
+      const handle = String(child?.collection?.handle || "").trim();
+      const title = String(child?.collection?.title || child.title || "").trim();
+      let cat: ProductCollection | null = null;
+      if (handle) cat = await getCollectionByHandle(handle);
+      if (!cat) {
+        const res = await searchProducts(title || handle || child.title);
+        cat = {
+          categoryId: String(child.id),
+          categoryTitle: title || child.title,
+          categoryHandle: handle || title || child.title,
+          categoryImage: child?.collection?.image && (child.collection.image as any)?.url
+            ? { url: String((child.collection.image as any).url) }
+            : undefined,
+          products: res,
+        };
+      }
+      setTabItems(cat.products.slice(0, 4));
+    } catch {
+      setTabItems([]);
+    } finally {
+      setLoadingTabs(false);
+    }
+  }, [menu?.items, tabIndex]);
+
+  const loadSunglassesTabItems = useCallback(async () => {
+    const base =
+      menu?.items?.find((x) => /sunglass/i.test(x.title)) || menu?.items?.[0];
+    const child = base?.subItems?.[sunglassesTabIndex];
+    if (!child) {
+      setSunglassesItems([]);
+      return;
+    }
+    setLoadingSunglasses(true);
+    try {
+      const handle = String(child?.collection?.handle || "").trim();
+      const title = String(child?.collection?.title || child.title || "").trim();
+      let cat: ProductCollection | null = null;
+      if (handle) cat = await getCollectionByHandle(handle);
+      if (!cat) {
+        const res = await searchProducts(title || handle || child.title);
+        cat = {
+          categoryId: String(child.id),
+          categoryTitle: title || child.title,
+          categoryHandle: handle || title || child.title,
+          categoryImage:
+            child?.collection?.image && (child.collection.image as any)?.url
+              ? { url: String((child.collection.image as any).url) }
+              : undefined,
+          products: res,
+        };
+      }
+      setSunglassesItems(cat.products.slice(0, 4));
+    } catch {
+      setSunglassesItems([]);
+    } finally {
+      setLoadingSunglasses(false);
+    }
+  }, [menu?.items, sunglassesTabIndex]);
+
+  const loadLifestyleTabItems = useCallback(async () => {
+    const base =
+      menu?.items?.find((x) => /lifestyle/i.test(x.title)) || menu?.items?.[0];
+    const child = base?.subItems?.[lifestyleTabIndex];
+    if (!child) {
+      setLifestyleItems([]);
+      return;
+    }
+    setLoadingLifestyle(true);
+    try {
+      const handle = String(child?.collection?.handle || "").trim();
+      const title = String(child?.collection?.title || child.title || "").trim();
+      let cat: ProductCollection | null = null;
+      if (handle) cat = await getCollectionByHandle(handle);
+      if (!cat) {
+        const res = await searchProducts(title || handle || child.title);
+        cat = {
+          categoryId: String(child.id),
+          categoryTitle: title || child.title,
+          categoryHandle: handle || title || child.title,
+          categoryImage:
+            child?.collection?.image && (child.collection.image as any)?.url
+              ? { url: String((child.collection.image as any).url) }
+              : undefined,
+          products: res,
+        };
+      }
+      setLifestyleItems(cat.products.slice(0, 4));
+    } catch {
+      setLifestyleItems([]);
+    } finally {
+      setLoadingLifestyle(false);
+    }
+  }, [menu?.items, lifestyleTabIndex]);
+
+  const loadStylesTabItems = useCallback(async () => {
+    const base =
+      menu?.items?.find((x) => /\bstyle/i.test(x.title)) || menu?.items?.[0];
+    const child = base?.subItems?.[stylesTabIndex];
+    if (!child) {
+      setStylesItems([]);
+      return;
+    }
+    setLoadingStyles(true);
+    try {
+      const handle = String(child?.collection?.handle || "").trim();
+      const title = String(child?.collection?.title || child.title || "").trim();
+      let cat: ProductCollection | null = null;
+      if (handle) cat = await getCollectionByHandle(handle);
+      if (!cat) {
+        const res = await searchProducts(title || handle || child.title);
+        cat = {
+          categoryId: String(child.id),
+          categoryTitle: title || child.title,
+          categoryHandle: handle || title || child.title,
+          categoryImage:
+            child?.collection?.image && (child.collection.image as any)?.url
+              ? { url: String((child.collection.image as any).url) }
+              : undefined,
+          products: res,
+        };
+      }
+      setStylesItems(cat.products.slice(0, 4));
+    } catch {
+      setStylesItems([]);
+    } finally {
+      setLoadingStyles(false);
+    }
+  }, [menu?.items, stylesTabIndex]);
+
+  useEffect(() => {
+    loadTabItems();
+  }, [loadTabItems]);
+
+  useEffect(() => {
+    if (!menu?.items || menu.items.length === 0) return;
+    loadSunglassesTabItems();
+  }, [menu, loadSunglassesTabItems]);
+
+  useEffect(() => {
+    if (!menu?.items || menu.items.length === 0) return;
+    loadLifestyleTabItems();
+  }, [menu, loadLifestyleTabItems]);
+
+  useEffect(() => {
+    if (!menu?.items || menu.items.length === 0) return;
+    loadStylesTabItems();
+  }, [menu, loadStylesTabItems]);
 
   const handleSubmitSearch = async (q: string) => {
     const query = q.trim();
@@ -109,27 +339,15 @@ export default function HomeScreen({ navigation }: any) {
     }
   };
 
-  const handleViewAll = useCallback((title: string, products: Product[], id: string) => {
-    if (!products || products.length === 0) return;
-    const cat: ProductCollection = {
-      categoryId: id,
-      categoryTitle: title,
-      categoryHandle: id,
-      categoryImage: undefined,
-      products: [],
-    };
-    navigation.navigate("ProductList", { category: cat, listType: id });
-  }, [navigation]);
-
-  const renderHomeProduct = useCallback(({ item }: { item: Product }) => {
+  const renderHomeProductBase = useCallback((item: Product, inline: boolean) => {
     const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
     return (
       <TouchableOpacity
-        style={styles.productCard}
+        style={[styles.productCard, inline ? styles.productCardInline : styles.productCardFull]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate("ProductDetails", { product: item })}
       >
-        <View style={styles.productImageWrap}>
+        <View style={[styles.productImageWrap, inline ? styles.productImageWrapInline : styles.productImageWrapFull]}>
           {imageUrl ? (
             <FastImage
               source={{
@@ -138,7 +356,7 @@ export default function HomeScreen({ navigation }: any) {
                 cache: FastImage.cacheControl.immutable,
               }}
               style={styles.productImage}
-              resizeMode={FastImage.resizeMode.cover}
+              resizeMode={inline ? FastImage.resizeMode.cover : FastImage.resizeMode.contain}
             />
           ) : (
             <View style={styles.productPlaceholder}>
@@ -146,25 +364,17 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           )}
         </View>
-        <Text style={styles.productTitle} numberOfLines={2}>
+        <Text style={styles.productTitle} numberOfLines={inline ? 2 : 3}>
           {item.title}
         </Text>
-        <Text style={styles.productPrice}>₹{item.price}</Text>
+        <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
       </TouchableOpacity>
     );
   }, [navigation]);
-  const keyExtractor = useCallback((item: Product) => item.id, []);
-
-  useEffect(() => {
-    const bsUris = bestSellers
-      .map((p) => p.featuredImage?.url)
-      .filter(Boolean)
-      .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
-    if (bsUris.length > 0) {
-      FastImage.preload(bsUris as any);
-    }
-  }, [bestSellers]);
-
+  const renderGridProduct = useCallback(
+    ({ item }: { item: Product }) => renderHomeProductBase(item, false),
+    [renderHomeProductBase]
+  );
   useEffect(() => {
     const naUris = newArrivals
       .map((p) => p.featuredImage?.url)
@@ -177,17 +387,18 @@ export default function HomeScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      {/* Fixed Header */}
       <CustomHeader
-        title="Home"
+        title={undefined}
         value={searchQuery}
         searchEnabled
+        showCart
+        cartCount={cartCount}
+        onCartPress={() => navigation.navigate("Cart")}
         onSearch={setSearchQuery}
         onFocus={() => setShowSearchOverlay(true)}
         onSubmit={handleSubmitSearch}
       />
 
-      {/* Search Overlay */}
       <SearchOverlay
         visible={showSearchOverlay}
         query={searchQuery}
@@ -221,13 +432,11 @@ export default function HomeScreen({ navigation }: any) {
         onSubmitQuery={handleSubmitSearch}
       />
 
-      {/* MAIN SCROLL AREA */}
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Hero Slider */}
         <View style={styles.hero}>
           <FlatList
             ref={flatListRef}
@@ -268,7 +477,6 @@ export default function HomeScreen({ navigation }: any) {
             }}
           />
 
-          {/* Pagination */}
           <View style={styles.pagination}>
             {heroImages.map((_, i) => (
               <View
@@ -284,109 +492,408 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Collections</Text>
+            <Text style={styles.sectionTitle}>Browse Categories</Text>
             <TouchableOpacity onPress={() => navigation.navigate("Collections")}>
-              <Text style={styles.sectionAction}>Browse</Text>
+              <Text style={styles.sectionAction}>View all</Text>
             </TouchableOpacity>
           </View>
+          {loadingMenu || !menu ? (
+            <FlatList
+              data={[1, 2, 3, 4, 5]}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              renderItem={() => <CategoryChipSkeleton />}
+              keyExtractor={(item) => `chip-${item}`}
+              contentContainerStyle={styles.catChipsRow}
+            />
+          ) : (
+            <FlatList
+              data={menu.items.slice(0, 6)}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, idx) => item.id + "_" + idx}
+              renderItem={({ item }) => {
+                const imgSource = item?.collection?.image as any;
+                const img =
+                  typeof imgSource === "string"
+                    ? String(imgSource)
+                    : imgSource && imgSource.url
+                    ? String(imgSource.url)
+                    : "";
+                const uri = img ? optimizeShopifyUrl(img) : undefined;
+                return (
+                  <TouchableOpacity style={styles.catChip} activeOpacity={0.8} onPress={() => openMenuItem(item)}>
+                    <View style={styles.catChipImageWrap}>
+                      {uri ? (
+                        <FastImage
+                          source={{ uri, priority: FastImage.priority.normal, cache: FastImage.cacheControl.immutable }}
+                          style={styles.catChipImage}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
+                      ) : (
+                        <View style={styles.catChipPlaceholder}><MaterialIcons name="image" size={20} color="#9ca3af" /></View>
+                      )}
+                    </View>
+                    <Text style={styles.catChipLabel} numberOfLines={1}>{item.title}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+              contentContainerStyle={styles.catChipsRow}
+            />
+          )}
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Series</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Collections")}>
+              <Text style={styles.sectionAction}>View all</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.seriesGrid}>
+            {(seriesItems || []).map((s, idx) => {
+              const imgSource = s?.collection?.image as any;
+              const img =
+                typeof imgSource === "string"
+                  ? String(imgSource)
+                  : imgSource && imgSource.url
+                  ? String(imgSource.url)
+                  : "";
+              const uri = img ? optimizeShopifyUrl(img) : undefined;
+              return (
+                <TouchableOpacity key={String(s.id) + "_" + idx} style={styles.seriesCard} activeOpacity={0.9} onPress={() => openMenuItem(s)}>
+                  <View style={styles.seriesImageWrap}>
+                    {uri ? (
+                      <FastImage
+                        source={{ uri, priority: FastImage.priority.normal, cache: FastImage.cacheControl.immutable }}
+                        style={styles.seriesImage}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View style={styles.seriesPlaceholder}><MaterialIcons name="image" size={22} color="#9ca3af" /></View>
+                    )}
+                  </View>
+                  <View style={styles.seriesTextWrap}>
+                    <Text style={styles.seriesTitle} numberOfLines={1}>{s.title}</Text>
+                    <TouchableOpacity style={styles.seriesCta} onPress={() => openMenuItem(s)}>
+                      <Text style={styles.seriesCtaText}>VIEW ALL</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRowCenter}>
+            <Text style={styles.sectionTitleCenter}>
+              {(menu?.items?.find((x) => /accessor/i.test(x.title))?.title) || "Accessories"}
+            </Text>
+          </View>
+          <FlatList
+            data={(menu?.items?.find((x) => /accessor/i.test(x.title))?.subItems) || (menu?.items?.[0]?.subItems || [])}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, idx) => item.id + "_" + idx}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[styles.tabChip, tabIndex === index ? styles.tabChipActive : null]}
+                onPress={() => setTabIndex(index)}
+              >
+                <Text style={[styles.tabChipLabel, tabIndex === index ? styles.tabChipLabelActive : null]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.tabsRow}
+          />
+          {loadingTabs ? null : (
+            <View style={styles.innerlist}>
+              {tabItems.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MaterialIcons name="search-off" size={44} color="#9ca3af" />
+                  <Text style={styles.emptyTitle}>No products found</Text>
+                  <Text style={styles.emptySubtitle}>Try another tab.</Text>
+                </View>
+              ) : (
+                (() => {
+                  const rows: Product[][] = [];
+                  for (let i = 0; i < tabItems.length; i += 2) {
+                    rows.push(tabItems.slice(i, i + 2));
+                  }
+                  return rows.map((row, idx) => (
+                    <View key={`row-${idx}`} style={styles.column}>
+                      {row.map((p) => (
+                        <View key={p.id} style={styles.gridHalf}>
+                          {renderGridProduct({ item: p })}
+                        </View>
+                      ))}
+                    </View>
+                  ));
+                })()
+              )}
+            </View>
+          )}
           <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.collectionsCtaCard}
-            onPress={() => navigation.navigate("Collections")}
+            style={styles.viewAllBtn}
+            onPress={() => {
+              const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
+              const child = accBase?.subItems?.[tabIndex];
+              if (child) openMenuItem(child);
+            }}
           >
-            <View style={styles.collectionsCtaIcon}>
-              <MaterialIcons name="grid-view" size={20} color="#2563eb" />
-            </View>
-            <View style={styles.collectionsCtaTextWrap}>
-              <Text style={styles.collectionsCtaTitle}>Explore all collections</Text>
-              <Text style={styles.collectionsCtaSubtitle}>Find categories and shop faster</Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color="#64748b" />
+            <Text style={styles.viewAllText}>VIEW ALL</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Best Sellers</Text>
+            <View style={styles.sectionHeaderRowCenter}>
+              <Text style={styles.sectionTitleCenter}>Sunglasses</Text>
+            </View>
+            <FlatList
+              data={
+                (menu?.items?.find((x) => /sunglass/i.test(x.title))?.subItems) ||
+                (menu?.items?.[0]?.subItems || [])
+              }
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyExtractor={(item, idx) => item.id + "_" + idx}
+              renderItem={({ item, index }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.tabChip,
+                    sunglassesTabIndex === index ? styles.tabChipActive : null,
+                  ]}
+                  onPress={() => setSunglassesTabIndex(index)}
+                >
+                  <Text
+                    style={[
+                      styles.tabChipLabel,
+                      sunglassesTabIndex === index
+                        ? styles.tabChipLabelActive
+                        : null,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.title}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.tabsRow}
+            />
+            {loadingSunglasses ? (
+              <View style={styles.innerlist}>
+                <View style={styles.loadingRow}>
+                  <View style={styles.loadingBox} />
+                  <View style={styles.loadingBox} />
+                </View>
+              </View>
+            ) : (
+              <View style={styles.innerlist}>
+                {sunglassesItems.length === 0 ? (
+                  <View style={styles.emptyContainer}>
+                    <MaterialIcons name="search-off" size={44} color="#9ca3af" />
+                    <Text style={styles.emptyTitle}>No products found</Text>
+                    <Text style={styles.emptySubtitle}>Try another tab.</Text>
+                  </View>
+                ) : (
+                  (() => {
+                    const rows: Product[][] = [];
+                    for (let i = 0; i < sunglassesItems.length; i += 2) {
+                      rows.push(sunglassesItems.slice(i, i + 2));
+                    }
+                    return rows.map((row, idx) => (
+                      <View key={`sunglasses-row-${idx}`} style={styles.column}>
+                        {row.map((p) => (
+                          <View key={p.id} style={styles.gridHalf}>
+                            {renderGridProduct({ item: p })}
+                          </View>
+                        ))}
+                      </View>
+                    ));
+                  })()
+                )}
+              </View>
+            )}
             <TouchableOpacity
-              disabled={bestSellers.length === 0}
-              onPress={() => handleViewAll("Best Sellers", bestSellers, "best-sellers")}
+              style={styles.viewAllBtn}
+              onPress={() => {
+                const base =
+                  menu?.items?.find((x) => /sunglass/i.test(x.title)) ||
+                  menu?.items?.[0];
+                const child = base?.subItems?.[sunglassesTabIndex];
+                if (child) openMenuItem(child);
+              }}
             >
-              <Text
-                style={[
-                  styles.sectionAction,
-                  bestSellers.length === 0 && styles.sectionActionDisabled,
-                ]}
-              >
-                See all
-              </Text>
+              <Text style={styles.viewAllText}>VIEW ALL</Text>
             </TouchableOpacity>
           </View>
-          {loadingBestSellers ? (
-            <FlatList
-              data={[1, 2, 3]}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={() => <ProductCardSkeleton />}
-              keyExtractor={(item) => `skeleton-${item}`}
-              contentContainerStyle={styles.sectionList}
-            />
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRowCenter}>
+            <Text style={styles.sectionTitleCenter}>Lifestyle</Text>
+          </View>
+          <FlatList
+            data={
+              (menu?.items?.find((x) => /lifestyle/i.test(x.title))?.subItems) ||
+              (menu?.items?.[0]?.subItems || [])
+            }
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, idx) => item.id + "_" + idx}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[
+                  styles.tabChip,
+                  lifestyleTabIndex === index ? styles.tabChipActive : null,
+                ]}
+                onPress={() => setLifestyleTabIndex(index)}
+              >
+                <Text
+                  style={[
+                    styles.tabChipLabel,
+                    lifestyleTabIndex === index
+                      ? styles.tabChipLabelActive
+                      : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.tabsRow}
+          />
+          {loadingLifestyle ? (
+            <View style={styles.innerlist}>
+              <View style={styles.loadingRow}>
+                <View style={styles.loadingBox} />
+                <View style={styles.loadingBox} />
+              </View>
+            </View>
           ) : (
-            <FlatList
-              data={bestSellers}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={renderHomeProduct}
-              keyExtractor={keyExtractor}
-              contentContainerStyle={styles.sectionList}
-              initialNumToRender={10}
-              maxToRenderPerBatch={10}
-              windowSize={7}
-              removeClippedSubviews
-            />
+            <View style={styles.innerlist}>
+              {lifestyleItems.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MaterialIcons name="search-off" size={44} color="#9ca3af" />
+                  <Text style={styles.emptyTitle}>No products found</Text>
+                  <Text style={styles.emptySubtitle}>Try another tab.</Text>
+                </View>
+              ) : (
+                (() => {
+                  const rows: Product[][] = [];
+                  for (let i = 0; i < lifestyleItems.length; i += 2) {
+                    rows.push(lifestyleItems.slice(i, i + 2));
+                  }
+                  return rows.map((row, idx) => (
+                    <View key={`lifestyle-row-${idx}`} style={styles.column}>
+                      {row.map((p) => (
+                        <View key={p.id} style={styles.gridHalf}>
+                          {renderGridProduct({ item: p })}
+                        </View>
+                      ))}
+                    </View>
+                  ));
+                })()
+              )}
+            </View>
           )}
+          <TouchableOpacity
+            style={styles.viewAllBtn}
+            onPress={() => {
+              const base =
+                menu?.items?.find((x) => /lifestyle/i.test(x.title)) ||
+                menu?.items?.[0];
+              const child = base?.subItems?.[lifestyleTabIndex];
+              if (child) openMenuItem(child);
+            }}
+          >
+            <Text style={styles.viewAllText}>VIEW ALL</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>New Arrivals</Text>
-            <TouchableOpacity
-              disabled={newArrivals.length === 0}
-              onPress={() => handleViewAll("New Arrivals", newArrivals, "new-arrivals")}
-            >
-              <Text
-                style={[
-                  styles.sectionAction,
-                  newArrivals.length === 0 && styles.sectionActionDisabled,
-                ]}
-              >
-                See all
-              </Text>
-            </TouchableOpacity>
+          <View style={styles.sectionHeaderRowCenter}>
+            <Text style={styles.sectionTitleCenter}>Styles</Text>
           </View>
-          {loadingNewArrivals ? (
-            <FlatList
-              data={[1, 2, 3]}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={() => <ProductCardSkeleton />}
-              keyExtractor={(item) => `skeleton-${item}`}
-              contentContainerStyle={styles.sectionList}
-            />
+          <FlatList
+            data={
+              (menu?.items?.find((x) => /\bstyle/i.test(x.title))?.subItems) ||
+              (menu?.items?.[0]?.subItems || [])
+            }
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, idx) => item.id + "_" + idx}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[
+                  styles.tabChip,
+                  stylesTabIndex === index ? styles.tabChipActive : null,
+                ]}
+                onPress={() => setStylesTabIndex(index)}
+              >
+                <Text
+                  style={[
+                    styles.tabChipLabel,
+                    stylesTabIndex === index
+                      ? styles.tabChipLabelActive
+                      : null,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.tabsRow}
+          />
+          {loadingStyles ? (
+            <View style={styles.innerlist}>
+              <View style={styles.loadingRow}>
+                <View style={styles.loadingBox} />
+                <View style={styles.loadingBox} />
+              </View>
+            </View>
           ) : (
-            <FlatList
-              data={newArrivals}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              renderItem={renderHomeProduct}
-              keyExtractor={keyExtractor}
-              contentContainerStyle={styles.sectionList}
-              initialNumToRender={10}
-              maxToRenderPerBatch={10}
-              windowSize={7}
-              removeClippedSubviews
-            />
+            <View style={styles.innerlist}>
+              {stylesItems.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MaterialIcons name="search-off" size={44} color="#9ca3af" />
+                  <Text style={styles.emptyTitle}>No products found</Text>
+                  <Text style={styles.emptySubtitle}>Try another tab.</Text>
+                </View>
+              ) : (
+                (() => {
+                  const rows: Product[][] = [];
+                  for (let i = 0; i < stylesItems.length; i += 2) {
+                    rows.push(stylesItems.slice(i, i + 2));
+                  }
+                  return rows.map((row, idx) => (
+                    <View key={`styles-row-${idx}`} style={styles.column}>
+                      {row.map((p) => (
+                        <View key={p.id} style={styles.gridHalf}>
+                          {renderGridProduct({ item: p })}
+                        </View>
+                      ))}
+                    </View>
+                  ));
+                })()
+              )}
+            </View>
           )}
+          <TouchableOpacity
+            style={styles.viewAllBtn}
+            onPress={() => {
+              const base =
+                menu?.items?.find((x) => /\bstyle/i.test(x.title)) ||
+                menu?.items?.[0];
+              const child = base?.subItems?.[stylesTabIndex];
+              if (child) openMenuItem(child);
+            }}
+          >
+            <Text style={styles.viewAllText}>VIEW ALL</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.footerSpacer} />
@@ -411,7 +918,7 @@ const styles = StyleSheet.create({
     height: 220,
     marginTop: 12,
     marginBottom: 14,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#fff",
@@ -491,13 +998,26 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  sectionHeaderRowCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
     marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#111",
+  },
+  sectionTitleCenter: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111",
+    textAlign: "center",
   },
   sectionAction: {
     fontSize: 13,
@@ -507,35 +1027,113 @@ const styles = StyleSheet.create({
   sectionActionDisabled: {
     color: "#94a3b8",
   },
-  collectionsCtaCard: {
-    marginHorizontal: 12,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    flexDirection: "row",
+  catChipsRow: {
+    paddingLeft: 16,
+    paddingBottom: 8,
+  },
+  catChip: {
     alignItems: "center",
-    gap: 12,
+    marginRight: 12,
+    width: 80,
+  },
+  catChipImageWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  catChipPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#111827",
+    fontWeight: "600",
+  },
+  seriesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  seriesCard: {
+    width: "48%",
+    marginBottom: 16,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  collectionsCtaIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#eff6ff",
+  seriesImageWrap: {
+    height: 160,
+    backgroundColor: "#fff",
+  },
+  seriesImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  seriesPlaceholder: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#dbeafe",
   },
-  collectionsCtaTextWrap: { flex: 1 },
-  collectionsCtaTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
-  collectionsCtaSubtitle: { marginTop: 2, fontSize: 12, fontWeight: "600", color: "#64748b" },
+  seriesTextWrap: {
+    padding: 12,
+  },
+  seriesTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+  seriesCta: {
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 6,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  seriesCtaText: {
+    color: "#111827",
+    fontWeight: "700",
+  },
+  viewAllBtn: {
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 6,
+    backgroundColor: "#fff",
+  },
+  viewAllText: {
+    color: "#111827",
+    fontWeight: "700",
+  },
   sectionList: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 12,
   },
   sectionLoading: {
@@ -544,7 +1142,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   productCard: {
-    width: 140,
     backgroundColor: "#fff",
     borderRadius: 14,
     padding: 10,
@@ -554,9 +1151,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+  productCardInline: {
+    width: 140,
+  },
+  productCardFull: {
+    width: "100%",
+  },
   productImageWrap: {
     width: "100%",
-    height: 120,
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
@@ -564,6 +1166,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
+  },
+  productImageWrapInline: {
+    height: 120,
+  },
+  productImageWrapFull: {
+    height: 160,
   },
   productImage: {
     width: "100%",
@@ -587,5 +1195,70 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#111",
+  },
+  tabsRow: {
+    paddingLeft: 16,
+    paddingBottom: 8,
+  },
+  tabChip: {
+    borderColor: "#e5e7eb",
+    borderWidth: 1,
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 8,
+  },
+  tabChipActive: {
+    backgroundColor: "#111",
+    borderColor: "#111",
+  },
+  tabChipLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111",
+  },
+  tabChipLabelActive: {
+    color: "#fff",
+  },
+  column: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  loadingRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  innerlist: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  gridHalf: {
+    width: "48%",
+  },
+  loadingBox: {
+    width: "48%",
+    height: 180,
+    borderRadius: 14,
+    backgroundColor: "#e5e7eb",
+  },
+  emptyContainer: {
+    paddingVertical: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  emptySubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
   },
 });

@@ -10,7 +10,7 @@ import CustomHeader from "../components/CustomHeader";
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { user, accessToken, logout } = useAuth();
-  const { setCartId } = useCart();
+  const { setCartId, cartCount } = useCart();
   const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [addresses, setAddresses] = useState<any[]>([]);
@@ -111,7 +111,7 @@ export default function ProfileScreen() {
                 onPress: async () => {
                     await logout();
                     await setCartId(null);
-                    navigation.navigate("Shop");
+                    navigation.navigate("Home");
                 }
             }
         ]
@@ -233,11 +233,11 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Not Logged In</Text>
         <Text style={styles.subtitle}>Login to view your profile and manage orders.</Text>
         
-        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate("Shop", { screen: "Login" })}>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => navigation.navigate("Home", { screen: "Login" })}>
           <Text style={styles.primaryBtnText}>Login</Text>
         </TouchableOpacity>
         
-        <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate("Shop", { screen: "Register" })}>
+        <TouchableOpacity style={styles.secondaryBtn} onPress={() => navigation.navigate("Home", { screen: "Register" })}>
           <Text style={styles.secondaryBtnText}>Create Account</Text>
         </TouchableOpacity>
       </View>
@@ -263,7 +263,13 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <CustomHeader title="Account" showLogo />
+      <CustomHeader 
+        title="Account" 
+        showLogo 
+        showCart 
+        cartCount={cartCount} 
+        onCartPress={() => navigation.navigate("Home", { screen: "Cart" })}
+      />
       <View style={styles.contentContainer}>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             

@@ -7,11 +7,8 @@ import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 
 import { AuthProvider } from "./src/context/AuthContext";
 import { CartProvider } from "./src/context/CartContext";
-import { useAuth } from "./src/context/AuthContext";
-import { useCart } from "./src/context/CartContext";
 
 import ProductsStack from "./src/navigation/ProductsStack";
-import CartScreen from "./src/screens/Cart";
 import ProfileStack from "./src/navigation/ProfileStack";
 import WishlistScreen from "./src/screens/Wishlist";
 import CustomHeader from "./src/components/CustomHeader";
@@ -24,8 +21,6 @@ const Tab = createBottomTabNavigator();
 const HeaderTitle = () => <CustomHeader title="Shopify Store" />;
 
 function AppTabs() {
-  const { accessToken } = useAuth();
-  const { cartCount } = useCart();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -36,22 +31,36 @@ function AppTabs() {
         tabBarLabelStyle: { fontSize: 12 },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = "home";
-          if (route.name === "Shop") {
-            iconName = "store";
+          if (route.name === "Home") {
+            iconName = focused ? "home" : "home";
+          } else if (route.name === "New Arrivals") {
+            iconName = "new-releases";
           } else if (route.name === "Collections") {
             iconName = "grid-view";
           } else if (route.name === "Wishlist") {
             iconName = focused ? "favorite" : "favorite-outline";
-          } else if (route.name === "Cart") {
-            iconName = "shopping-cart";
-          } else if (route.name === "Profile") {
+          } else if (route.name === "Account") {
             iconName = focused ? "account-circle" : "person-outline";
           }
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Shop" component={ProductsStack} />
+      <Tab.Screen name="Home" component={ProductsStack} />
+      <Tab.Screen
+        name="New Arrivals"
+        component={ProductsStack}
+        initialParams={{
+          initialRouteName: "ProductList",
+          category: {
+            categoryId: "new-arrivals",
+            categoryTitle: "New Arrivals",
+            categoryHandle: "new-arrivals",
+            products: [],
+          },
+          listType: "new-arrivals",
+        }}
+      />
       <Tab.Screen
         name="Collections"
         component={ProductsStack}
@@ -63,23 +72,7 @@ function AppTabs() {
         options={{ headerShown: false }}
       />
       <Tab.Screen
-        name="Cart"
-        component={CartScreen}
-        options={{ 
-          headerShown: false,
-          tabBarBadge: cartCount > 0 ? cartCount : undefined,
-        }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            if (!accessToken) {
-              e.preventDefault();
-              navigation.navigate("Shop", { screen: "Login" });
-            }
-          },
-        })}
-      />
-      <Tab.Screen
-        name="Profile"
+        name="Account"
         component={ProfileStack}
         options={{ headerShown: false }}
       />
