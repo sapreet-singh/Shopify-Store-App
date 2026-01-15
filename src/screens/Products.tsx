@@ -7,7 +7,6 @@ import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 import { addToCart, createCart } from "../api/cart";
 import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems, removeFromWishlist } from "../api/wishlist";
-import { scale } from "react-native-size-matters";
 import { ProductCardSkeleton } from "../components/Skeletons";
 import FastImage from "react-native-fast-image";
 import CustomHeader from "../components/CustomHeader";
@@ -378,7 +377,7 @@ export default function ProductsScreen({ navigation, route }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingTop: scale(12),
+    backgroundColor: "#f8fafc",
   },
   column: {
     justifyContent: "space-between",

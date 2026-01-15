@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 
 interface CustomHeaderProps {
@@ -27,47 +28,54 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
   cartCount = 0,
   onCartPress
 }) => {
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
-      <View style={styles.titleRow}>
-        <View style={styles.titleContainer}>
-          {showLogo && (
-            <MaterialIcons name="storefront" size={24} color="#2563eb" style={styles.icon} />
-          )}
-          <Text style={styles.title}>{title || "PEEPERLY"}</Text>
-        </View>
-        {showCart && (
-          <TouchableOpacity style={styles.cartBtn} activeOpacity={0.8} onPress={onCartPress}>
-            <MaterialIcons name="shopping-cart" size={22} color="#111827" />
-            {cartCount > 0 && (
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{cartCount}</Text>
-              </View>
+    <View style={[styles.safeArea, { paddingTop: insets.top || 0 }]}>
+      <View style={styles.container}>
+        <View style={styles.titleRow}>
+          <View style={styles.titleContainer}>
+            {showLogo && (
+              <MaterialIcons name="storefront" size={24} color="#2563eb" style={styles.icon} />
             )}
-          </TouchableOpacity>
+            <Text style={styles.title}>{title || "Womilys"}</Text>
+          </View>
+          {showCart && (
+            <TouchableOpacity style={styles.cartBtn} activeOpacity={0.8} onPress={onCartPress}>
+              <MaterialIcons name="shopping-cart" size={22} color="#111827" />
+              {cartCount > 0 && (
+                <View style={styles.cartBadge}>
+                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          )}
+        </View>
+        
+        {searchEnabled && (
+          <View style={styles.searchContainer}>
+            <MaterialIcons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
+            <TextInput
+              placeholder="What are you looking for?"
+              style={styles.searchInput}
+              onChangeText={onSearch}
+              value={value}
+              onFocus={onFocus}
+              returnKeyType="search"
+              onSubmitEditing={(e) => onSubmit?.(e.nativeEvent.text)}
+              placeholderTextColor="#9ca3af"
+            />
+          </View>
         )}
       </View>
-      
-      {searchEnabled && (
-        <View style={styles.searchContainer}>
-          <MaterialIcons name="search" size={20} color="#9ca3af" style={styles.searchIcon} />
-          <TextInput
-            placeholder="What are you looking for?"
-            style={styles.searchInput}
-            onChangeText={onSearch}
-            value={value}
-            onFocus={onFocus}
-            returnKeyType="search"
-            onSubmitEditing={(e) => onSubmit?.(e.nativeEvent.text)}
-            placeholderTextColor="#9ca3af"
-          />
-        </View>
-      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  safeArea: {
+    backgroundColor: '#fff',
+  },
   container: {
     flexDirection: 'column',
     width: '100%',
