@@ -174,7 +174,7 @@ export default function HomeScreen({ navigation }: any) {
           products: res,
         };
       }
-      setAccessoriesProducts(cat.products.slice(0, 8));
+      setAccessoriesProducts(cat.products.slice(0, 4));
     } catch {
       setAccessoriesProducts([]);
     } finally {
@@ -209,18 +209,6 @@ export default function HomeScreen({ navigation }: any) {
       setSearchLoading(false);
     }
   };
-
-  const handleViewAll = useCallback((title: string, products: Product[], id: string) => {
-    if (!products || products.length === 0) return;
-    const cat: ProductCollection = {
-      categoryId: id,
-      categoryTitle: title,
-      categoryHandle: id,
-      categoryImage: undefined,
-      products: [],
-    };
-    navigation.navigate("ProductList", { category: cat, listType: id });
-  }, [navigation]);
 
   const renderHomeProductBase = useCallback((item: Product, inline: boolean) => {
     const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
