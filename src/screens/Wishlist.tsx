@@ -88,8 +88,8 @@ export default function WishlistScreen({ navigation }: any) {
     if (isAuthLoading) return;
     if (!user?.id) {
       Alert.alert("Login Required", "You need to login to view wishlist.", [
-        { text: "Cancel", style: "cancel", onPress: () => navigation.navigate("Shop") },
-        { text: "Login", onPress: () => navigation.navigate("Shop", { screen: "Login" }) },
+        { text: "Cancel", style: "cancel", onPress: () => navigation.navigate("Home") },
+        { text: "Login", onPress: () => navigation.navigate("Home", { screen: "Login" }) },
       ]);
       return;
     }
@@ -201,7 +201,7 @@ export default function WishlistScreen({ navigation }: any) {
       Alert.alert("Unavailable", "This product is not available right now.");
       return;
     }
-    navigation.navigate("Shop", { screen: "ProductDetails", params: { product } });
+    navigation.navigate("Home", { screen: "ProductDetails", params: { product } });
   }, [productById, navigation]);
 
   const renderItem = useCallback(({ item }: { item: WishlistRow }) => {
@@ -272,7 +272,7 @@ export default function WishlistScreen({ navigation }: any) {
         </View>
         <Text style={styles.emptyTitle}>Your Wishlist is Empty</Text>
         <Text style={styles.emptySubtitle}>Tap the heart icon on products to save them here.</Text>
-        <TouchableOpacity style={styles.shopNowBtn} onPress={() => navigation.navigate("Shop")}>
+        <TouchableOpacity style={styles.shopNowBtn} onPress={() => navigation.navigate("Home")}>
           <Text style={styles.shopNowBtnText}>Start Shopping</Text>
         </TouchableOpacity>
       </View>
