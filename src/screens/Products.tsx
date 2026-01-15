@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { View, FlatList, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
-import { getBestSellers, getNewArrivals, Product, ProductCollection } from "../api/products";
+import { getBestSellers, getNewArrivals, Product, ProductCollection, searchProducts } from "../api/products";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import { useFocusEffect } from "@react-navigation/native";
 import { useAuth } from "../context/AuthContext";
@@ -10,6 +10,7 @@ import { addToWishlist, buildProductIdKeys, getWishlist, normalizeWishlistItems,
 import { scale } from "react-native-size-matters";
 import { ProductCardSkeleton } from "../components/Skeletons";
 import FastImage from "react-native-fast-image";
+import CustomHeader from "../components/CustomHeader";
 
 export default function ProductsScreen({ navigation, route }: any) {
   const optimizeShopifyUrl = (u?: string, w: number = 400) => {
@@ -19,6 +20,7 @@ export default function ProductsScreen({ navigation, route }: any) {
     return `${url}${sep}width=${w}&format=webp`;
   };
   const NUM_COLUMNS = 2;
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<ProductCollection | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
@@ -276,17 +278,37 @@ export default function ProductsScreen({ navigation, route }: any) {
     }
   }, [filteredProducts]);
 
+  const handleSubmitSearch = async (q: string) => {
+    const query = q.trim();
+    if (!query) return;
+    try {
+      const results = await searchProducts(query);
+      const cat: ProductCollection = {
+        categoryId: "search",
+        categoryTitle: `Results: ${query}`,
+        categoryHandle: "search",
+        categoryImage: undefined,
+        products: results,
+      };
+      navigation.navigate("ProductList", { category: cat, products: results });
+    } catch {
+      Alert.alert("Error", "Search failed. Please try again.");
+    }
+  };
 
   if (!selectedCategory || loadingProducts) {
     return (
       <View style={styles.container}>
-        <View style={styles.categoryHeader}>
-          <View style={styles.skeletonHeaderLeft}>
-            <View style={styles.skeletonHeaderIcon} />
-            <View style={styles.skeletonHeaderBackText} />
-          </View>
-          <View style={styles.skeletonHeaderTitle} />
-        </View>
+        <CustomHeader
+          title="New Arrivals"
+          value={searchQuery}
+          searchEnabled
+          showCart
+          cartCount={cartCount}
+          onCartPress={() => navigation.navigate("Cart")}
+          onSearch={setSearchQuery}
+          onSubmit={handleSubmitSearch}
+        />
         <FlatList
           data={[1, 2, 3, 4, 5, 6]}
           keyExtractor={(item) => `skeleton-${item}`}
@@ -309,24 +331,16 @@ export default function ProductsScreen({ navigation, route }: any) {
 
   return (
     <View style={styles.container}>
-      <View style={styles.categoryHeader}>
-        <TouchableOpacity
-          onPress={() => (navigation.canGoBack?.() ? navigation.goBack() : navigation.navigate("Home"))}
-          style={styles.backBtn}
-        >
-          <MaterialIcons name="arrow-back" size={20} color="#111827" />
-          <Text style={styles.backText}>Collections</Text>
-        </TouchableOpacity>
-        <Text style={styles.categoryTitle}>{selectedCategory.categoryTitle}</Text>
-        <TouchableOpacity style={styles.cartBtn} onPress={() => navigation.navigate("Cart")}>
-          <MaterialIcons name="shopping-cart" size={20} color="#111827" />
-          {cartCount > 0 && (
-            <View style={styles.cartBadge}>
-              <Text style={styles.cartBadgeText}>{cartCount}</Text>
-            </View>
-          )}
-        </TouchableOpacity>
-      </View>
+      <CustomHeader
+        title={selectedCategory?.categoryTitle || "Products"}
+        value={searchQuery}
+        searchEnabled
+        showCart
+        cartCount={cartCount}
+        onCartPress={() => navigation.navigate("Cart")}
+        onSearch={setSearchQuery}
+        onSubmit={handleSubmitSearch}
+      />
       <FlatList
         data={filteredProducts}
         keyExtractor={keyExtractor}
@@ -486,56 +500,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 13,
     color: "#6b7280",
-  },
-  categoryHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 12,
-    paddingTop: 8,
-  },
-  backBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  backText: {
-    fontSize: 14,
-    color: "#111827",
-    fontWeight: "600",
-  },
-  categoryTitle: {
-    fontSize: 16,
-    color: "#374151",
-    fontWeight: "600",
-  },
-  cartBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
-    backgroundColor: "#fff",
-    position: "relative",
-  },
-  cartBadge: {
-    position: "absolute",
-    top: -4,
-    right: -4,
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    paddingHorizontal: 4,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  cartBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "700",
   },
   homeHeader: {
     paddingBottom: 12,

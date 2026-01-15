@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import CustomHeader from "../components/CustomHeader";
+import { useCart } from "../context/CartContext";
 import SearchOverlay from "../components/SearchOverlay";
 import { CategoryChipSkeleton } from "../components/Skeletons";
 import {
@@ -22,6 +23,7 @@ import {
 } from "../api/products";
 
 export default function CollectionsScreen({ navigation }: any) {
+  const { cartCount } = useCart();
   const [menu, setMenu] = useState<MenuResponse | null>(null);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -154,6 +156,9 @@ export default function CollectionsScreen({ navigation }: any) {
         title={"Collections"}
         value={searchQuery}
         searchEnabled
+        showCart
+        cartCount={cartCount}
+        onCartPress={() => navigation.navigate("Cart")}
         onSearch={setSearchQuery}
         onFocus={() => setShowSearchOverlay(true)}
         onSubmit={handleSubmitSearch}

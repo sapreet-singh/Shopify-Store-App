@@ -34,7 +34,7 @@ const CustomHeader: React.FC<CustomHeaderProps> = ({
           {showLogo && (
             <MaterialIcons name="storefront" size={24} color="#2563eb" style={styles.icon} />
           )}
-          <Text style={styles.title}>{title || "Shopify Store"}</Text>
+          <Text style={styles.title}>{title || "PEEPERLY"}</Text>
         </View>
         {showCart && (
           <TouchableOpacity style={styles.cartBtn} activeOpacity={0.8} onPress={onCartPress}>

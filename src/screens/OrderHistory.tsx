@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar, ActivityIndicator, Image, Linking, Modal, Pressable } from 'react-native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import CustomHeader from '../components/CustomHeader';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCustomerOrders, Order } from '../api/orders';
 
@@ -67,17 +68,20 @@ export default function OrderHistoryScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => navigation.goBack()}
-        >
-          <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Orders</Text>
-        <View style={styles.headerSpacer} />
-      </View>
+      {typeof (navigation as any)?.canGoBack === 'function' && (navigation as any).canGoBack() ? (
+        <View style={styles.header}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={() => navigation.goBack()}
+          >
+            <MaterialIcons name="arrow-back" size={24} color="#1f2937" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+      ) : (
+        <CustomHeader title="Track Order" />
+      )}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {orders.length === 0 ? (

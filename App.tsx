@@ -31,22 +31,22 @@ function AppTabs() {
         tabBarLabelStyle: { fontSize: 12 },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: string = "home";
-          if (route.name === "Shop") {
-            iconName = "store";
+          if (route.name === "Home") {
+            iconName = focused ? "home" : "home";
           } else if (route.name === "New Arrivals") {
             iconName = "new-releases";
           } else if (route.name === "Collections") {
             iconName = "grid-view";
           } else if (route.name === "Wishlist") {
             iconName = focused ? "favorite" : "favorite-outline";
-          } else if (route.name === "Profile") {
+          } else if (route.name === "Account") {
             iconName = focused ? "account-circle" : "person-outline";
           }
           return <MaterialIcons name={iconName} size={size} color={color} />;
         },
       })}
     >
-      <Tab.Screen name="Shop" component={ProductsStack} />
+      <Tab.Screen name="Home" component={ProductsStack} />
       <Tab.Screen
         name="New Arrivals"
         component={ProductsStack}
@@ -72,7 +72,7 @@ function AppTabs() {
         options={{ headerShown: false }}
       />
       <Tab.Screen
-        name="Profile"
+        name="Account"
         component={ProfileStack}
         options={{ headerShown: false }}
       />
