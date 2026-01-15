@@ -53,9 +53,9 @@ export default function HomeScreen({ navigation }: any) {
   const [loadingMenu, setLoadingMenu] = useState(false);
   const [seriesItems, setSeriesItems] = useState<MenuItem[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
-  const [accessoriesIndex, setAccessoriesIndex] = useState(0);
-  const [accessoriesProducts, setAccessoriesProducts] = useState<Product[]>([]);
-  const [loadingAccessories, setLoadingAccessories] = useState(false);
+  const [tabIndex, setTabIndex] = useState(0);
+  const [tabItems, setTabItems] = useState<Product[]>([]);
+  const [loadingTabs, setLoadingTabs] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -95,7 +95,7 @@ export default function HomeScreen({ navigation }: any) {
         const accIdx = Math.max(0, (m?.items || []).findIndex((x) => /accessor/i.test(x.title)));
         const base = (m?.items || [])[accIdx];
         if (base && base.subItems && base.subItems.length > 0) {
-          setAccessoriesIndex(0);
+          setTabIndex(0);
         }
       })
       .catch(() => undefined)
@@ -149,14 +149,14 @@ export default function HomeScreen({ navigation }: any) {
     } catch {}
   }, [navigation]);
 
-  const loadAccessoriesProducts = useCallback(async () => {
+  const loadTabItems = useCallback(async () => {
     const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
-    const child = accBase?.subItems?.[accessoriesIndex];
+    const child = accBase?.subItems?.[tabIndex];
     if (!child) {
-      setAccessoriesProducts([]);
+      setTabItems([]);
       return;
     }
-    setLoadingAccessories(true);
+    setLoadingTabs(true);
     try {
       const handle = String(child?.collection?.handle || "").trim();
       const title = String(child?.collection?.title || child.title || "").trim();
@@ -174,17 +174,17 @@ export default function HomeScreen({ navigation }: any) {
           products: res,
         };
       }
-      setAccessoriesProducts(cat.products.slice(0, 4));
+      setTabItems(cat.products.slice(0, 4));
     } catch {
-      setAccessoriesProducts([]);
+      setTabItems([]);
     } finally {
-      setLoadingAccessories(false);
+      setLoadingTabs(false);
     }
-  }, [menu?.items, accessoriesIndex]);
+  }, [menu?.items, tabIndex]);
 
   useEffect(() => {
-    loadAccessoriesProducts();
-  }, [loadAccessoriesProducts]);
+    loadTabItems();
+  }, [loadTabItems]);
 
   const handleSubmitSearch = async (q: string) => {
     const query = q.trim();
@@ -457,8 +457,8 @@ export default function HomeScreen({ navigation }: any) {
         </View>
 
         <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>
+          <View style={styles.sectionHeaderRowCenter}>
+            <Text style={styles.sectionTitleCenter}>
               {(menu?.items?.find((x) => /accessor/i.test(x.title))?.title) || "Accessories"}
             </Text>
           </View>
@@ -469,10 +469,10 @@ export default function HomeScreen({ navigation }: any) {
             keyExtractor={(item, idx) => item.id + "_" + idx}
             renderItem={({ item, index }) => (
               <TouchableOpacity
-                style={[styles.tabChip, accessoriesIndex === index ? styles.tabChipActive : null]}
-                onPress={() => setAccessoriesIndex(index)}
+                style={[styles.tabChip, tabIndex === index ? styles.tabChipActive : null]}
+                onPress={() => setTabIndex(index)}
               >
-                <Text style={[styles.tabChipLabel, accessoriesIndex === index ? styles.tabChipLabelActive : null]} numberOfLines={1}>
+                <Text style={[styles.tabChipLabel, tabIndex === index ? styles.tabChipLabelActive : null]} numberOfLines={1}>
                   {item.title}
                 </Text>
               </TouchableOpacity>
@@ -480,9 +480,9 @@ export default function HomeScreen({ navigation }: any) {
             contentContainerStyle={styles.tabsRow}
           />
           
-             {loadingAccessories ? null : (
+             {loadingTabs ? null : (
             <View style={styles.innerlist}>
-              {accessoriesProducts.length === 0 ? (
+              {tabItems.length === 0 ? (
                 <View style={styles.emptyContainer}>
                   <MaterialIcons name="search-off" size={44} color="#9ca3af" />
                   <Text style={styles.emptyTitle}>No products found</Text>
@@ -491,8 +491,8 @@ export default function HomeScreen({ navigation }: any) {
               ) : (
                 (() => {
                   const rows: Product[][] = [];
-                  for (let i = 0; i < accessoriesProducts.length; i += 2) {
-                    rows.push(accessoriesProducts.slice(i, i + 2));
+                  for (let i = 0; i < tabItems.length; i += 2) {
+                    rows.push(tabItems.slice(i, i + 2));
                   }
                   return rows.map((row, idx) => (
                     <View key={`row-${idx}`} style={styles.column}>
@@ -512,7 +512,7 @@ export default function HomeScreen({ navigation }: any) {
             style={styles.viewAllBtn}
             onPress={() => {
               const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
-              const child = accBase?.subItems?.[accessoriesIndex];
+              const child = accBase?.subItems?.[tabIndex];
               if (child) openMenuItem(child);
             }}
           >
@@ -625,10 +625,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 10,
   },
+  sectionHeaderRowCenter: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
     color: "#111",
+  },
+  sectionTitleCenter: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#111",
+    textAlign: "center",
   },
   sectionAction: {
     fontSize: 13,
