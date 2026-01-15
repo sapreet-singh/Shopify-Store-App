@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
-import { getBestSellers, Product, ProductCollection, searchProducts, } from "../api/products";
+import { Product, ProductCollection, searchProducts, getMenu, MenuResponse, MenuItem, getCollectionByHandle, getNewArrivals } from "../api/products";
 
 import CustomHeader from "../components/CustomHeader";
-import { ProductCardSkeleton } from "../components/Skeletons";
+import { CategoryChipSkeleton } from "../components/Skeletons";
 import MaterialIcons from "react-native-vector-icons/MaterialIcons";
 import SearchOverlay from "../components/SearchOverlay";
 import FastImage from "react-native-fast-image";
@@ -12,6 +12,23 @@ import { useCart } from "../context/CartContext";
 
 const { width } = Dimensions.get("window");
 const HERO_WIDTH = width - 24;
+
+const formatPrice = (v: number | string) => {
+  const n = Number(v);
+  if (isNaN(n)) return `₹${String(v)}`;
+  const hasDecimals = Math.round(n) !== n;
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      minimumFractionDigits: hasDecimals ? 2 : 0,
+      maximumFractionDigits: hasDecimals ? 2 : 0,
+    }).format(n);
+  } catch {
+    const amount = hasDecimals ? n.toFixed(2) : String(Math.round(n));
+    return `₹${amount}`;
+  }
+};
 
 const optimizeShopifyUrl = (u?: string, w: number = 400) => {
   if (!u) return undefined;
@@ -32,8 +49,13 @@ export default function HomeScreen({ navigation }: any) {
   const [searchQuery, setSearchQuery] = useState("");
   const [_searchLoading, setSearchLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
-  const [bestSellers, setBestSellers] = useState<Product[]>([]);
-  const [loadingBestSellers, setLoadingBestSellers] = useState(false);
+  const [menu, setMenu] = useState<MenuResponse | null>(null);
+  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [seriesItems, setSeriesItems] = useState<MenuItem[]>([]);
+  const [newArrivals, setNewArrivals] = useState<Product[]>([]);
+  const [accessoriesIndex, setAccessoriesIndex] = useState(0);
+  const [accessoriesProducts, setAccessoriesProducts] = useState<Product[]>([]);
+  const [loadingAccessories, setLoadingAccessories] = useState(false);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const flatListRef = useRef<FlatList>(null);
@@ -56,23 +78,113 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     let isActive = true;
-    setLoadingBestSellers(true);
-    getBestSellers()
-      .then((data) => {
+    setLoadingMenu(true);
+    getMenu()
+      .then((m) => {
         if (!isActive) return;
-        setBestSellers(data);
+        setMenu(m);
+        const collected: MenuItem[] = [];
+        for (const it of m?.items || []) {
+          for (const s of it.subItems || []) {
+            collected.push(s);
+            if (collected.length >= 4) break;
+          }
+          if (collected.length >= 4) break;
+        }
+        setSeriesItems(collected);
+        const accIdx = Math.max(0, (m?.items || []).findIndex((x) => /accessor/i.test(x.title)));
+        const base = (m?.items || [])[accIdx];
+        if (base && base.subItems && base.subItems.length > 0) {
+          setAccessoriesIndex(0);
+        }
       })
       .catch(() => undefined)
       .finally(() => {
         if (!isActive) return;
-        setLoadingBestSellers(false);
+        setLoadingMenu(false);
       });
-
-
     return () => {
       isActive = false;
     };
   }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    getNewArrivals()
+      .then((items) => {
+        if (!isActive) return;
+        setNewArrivals(items);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!isActive) return;
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const openMenuItem = useCallback(async (item: MenuItem) => {
+    const handle = String(item?.collection?.handle || "").trim();
+    const title = String(item?.collection?.title || item.title || "").trim();
+    try {
+      let category: ProductCollection | null = null;
+      if (handle) {
+        category = await getCollectionByHandle(handle);
+      }
+      if (!category) {
+        const results = await searchProducts(title || handle || item.title);
+        category = {
+          categoryId: String(item.id),
+          categoryTitle: title || item.title,
+          categoryHandle: handle || title || item.title,
+          categoryImage:
+            item?.collection?.image && (item.collection.image as any)?.url
+              ? { url: String((item.collection.image as any).url) }
+              : undefined,
+          products: results,
+        };
+      }
+      navigation.navigate("ProductList", { category, products: category.products });
+    } catch {}
+  }, [navigation]);
+
+  const loadAccessoriesProducts = useCallback(async () => {
+    const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
+    const child = accBase?.subItems?.[accessoriesIndex];
+    if (!child) {
+      setAccessoriesProducts([]);
+      return;
+    }
+    setLoadingAccessories(true);
+    try {
+      const handle = String(child?.collection?.handle || "").trim();
+      const title = String(child?.collection?.title || child.title || "").trim();
+      let cat: ProductCollection | null = null;
+      if (handle) cat = await getCollectionByHandle(handle);
+      if (!cat) {
+        const res = await searchProducts(title || handle || child.title);
+        cat = {
+          categoryId: String(child.id),
+          categoryTitle: title || child.title,
+          categoryHandle: handle || title || child.title,
+          categoryImage: child?.collection?.image && (child.collection.image as any)?.url
+            ? { url: String((child.collection.image as any).url) }
+            : undefined,
+          products: res,
+        };
+      }
+      setAccessoriesProducts(cat.products.slice(0, 8));
+    } catch {
+      setAccessoriesProducts([]);
+    } finally {
+      setLoadingAccessories(false);
+    }
+  }, [menu?.items, accessoriesIndex]);
+
+  useEffect(() => {
+    loadAccessoriesProducts();
+  }, [loadAccessoriesProducts]);
 
   const handleSubmitSearch = async (q: string) => {
     const query = q.trim();
@@ -110,15 +222,15 @@ export default function HomeScreen({ navigation }: any) {
     navigation.navigate("ProductList", { category: cat, listType: id });
   }, [navigation]);
 
-  const renderHomeProduct = useCallback(({ item }: { item: Product }) => {
+  const renderHomeProductBase = useCallback((item: Product, inline: boolean) => {
     const imageUrl = optimizeShopifyUrl(item.featuredImage?.url);
     return (
       <TouchableOpacity
-        style={styles.productCard}
+        style={[styles.productCard, inline ? styles.productCardInline : styles.productCardFull]}
         activeOpacity={0.8}
         onPress={() => navigation.navigate("ProductDetails", { product: item })}
       >
-        <View style={styles.productImageWrap}>
+        <View style={[styles.productImageWrap, inline ? styles.productImageWrapInline : styles.productImageWrapFull]}>
           {imageUrl ? (
             <FastImage
               source={{
@@ -127,7 +239,7 @@ export default function HomeScreen({ navigation }: any) {
                 cache: FastImage.cacheControl.immutable,
               }}
               style={styles.productImage}
-              resizeMode={FastImage.resizeMode.cover}
+              resizeMode={inline ? FastImage.resizeMode.cover : FastImage.resizeMode.contain}
             />
           ) : (
             <View style={styles.productPlaceholder}>
@@ -135,32 +247,31 @@ export default function HomeScreen({ navigation }: any) {
             </View>
           )}
         </View>
-        <Text style={styles.productTitle} numberOfLines={2}>
+        <Text style={styles.productTitle} numberOfLines={inline ? 2 : 3}>
           {item.title}
         </Text>
-        <Text style={styles.productPrice}>₹{item.price}</Text>
+        <Text style={styles.productPrice}>{formatPrice(item.price)}</Text>
       </TouchableOpacity>
     );
   }, [navigation]);
-  const keyExtractor = useCallback((item: Product) => item.id, []);
-
+  const renderGridProduct = useCallback(
+    ({ item }: { item: Product }) => renderHomeProductBase(item, false),
+    [renderHomeProductBase]
+  );
   useEffect(() => {
-    const bsUris = bestSellers
+    const naUris = newArrivals
       .map((p) => p.featuredImage?.url)
       .filter(Boolean)
       .map((u) => ({ uri: optimizeShopifyUrl(u as string) }));
-    if (bsUris.length > 0) {
-      FastImage.preload(bsUris as any);
+    if (naUris.length > 0) {
+      FastImage.preload(naUris as any);
     }
-  }, [bestSellers]);
-
-  
+  }, [newArrivals]);
 
   return (
     <View style={styles.container}>
-      {/* Fixed Header */}
       <CustomHeader
-        title="Home"
+        title={undefined}
         value={searchQuery}
         searchEnabled
         showCart
@@ -171,7 +282,6 @@ export default function HomeScreen({ navigation }: any) {
         onSubmit={handleSubmitSearch}
       />
 
-      {/* Search Overlay */}
       <SearchOverlay
         visible={showSearchOverlay}
         query={searchQuery}
@@ -205,13 +315,11 @@ export default function HomeScreen({ navigation }: any) {
         onSubmitQuery={handleSubmitSearch}
       />
 
-      {/* MAIN SCROLL AREA */}
       <ScrollView
         ref={scrollRef}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Hero Slider */}
         <View style={styles.hero}>
           <FlatList
             ref={flatListRef}
@@ -252,7 +360,6 @@ export default function HomeScreen({ navigation }: any) {
             }}
           />
 
-          {/* Pagination */}
           <View style={styles.pagination}>
             {heroImages.map((_, i) => (
               <View
@@ -268,70 +375,162 @@ export default function HomeScreen({ navigation }: any) {
 
         <View style={styles.sectionContainer}>
           <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Collections</Text>
+            <Text style={styles.sectionTitle}>Browse Categories</Text>
             <TouchableOpacity onPress={() => navigation.navigate("Collections")}>
-              <Text style={styles.sectionAction}>Browse</Text>
+              <Text style={styles.sectionAction}>View all</Text>
             </TouchableOpacity>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.9}
-            style={styles.collectionsCtaCard}
-            onPress={() => navigation.navigate("Collections")}
-          >
-            <View style={styles.collectionsCtaIcon}>
-              <MaterialIcons name="grid-view" size={20} color="#2563eb" />
-            </View>
-            <View style={styles.collectionsCtaTextWrap}>
-              <Text style={styles.collectionsCtaTitle}>Explore all collections</Text>
-              <Text style={styles.collectionsCtaSubtitle}>Find categories and shop faster</Text>
-            </View>
-            <MaterialIcons name="chevron-right" size={22} color="#64748b" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <Text style={styles.sectionTitle}>Best Sellers</Text>
-            <TouchableOpacity
-              disabled={bestSellers.length === 0}
-              onPress={() => handleViewAll("Best Sellers", bestSellers, "best-sellers")}
-            >
-              <Text
-                style={[
-                  styles.sectionAction,
-                  bestSellers.length === 0 && styles.sectionActionDisabled,
-                ]}
-              >
-                See all
-              </Text>
-            </TouchableOpacity>
-          </View>
-          {loadingBestSellers ? (
+          {loadingMenu || !menu ? (
             <FlatList
-              data={[1, 2, 3]}
+              data={[1, 2, 3, 4, 5]}
               horizontal
               showsHorizontalScrollIndicator={false}
-              renderItem={() => <ProductCardSkeleton />}
-              keyExtractor={(item) => `skeleton-${item}`}
-              contentContainerStyle={styles.sectionList}
+              renderItem={() => <CategoryChipSkeleton />}
+              keyExtractor={(item) => `chip-${item}`}
+              contentContainerStyle={styles.catChipsRow}
             />
           ) : (
             <FlatList
-              data={bestSellers}
+              data={menu.items.slice(0, 6)}
               horizontal
               showsHorizontalScrollIndicator={false}
-              renderItem={renderHomeProduct}
-              keyExtractor={keyExtractor}
-              contentContainerStyle={styles.sectionList}
-              initialNumToRender={10}
-              maxToRenderPerBatch={10}
-              windowSize={7}
-              removeClippedSubviews
+              keyExtractor={(item, idx) => item.id + "_" + idx}
+              renderItem={({ item }) => {
+                const imgSource = item?.collection?.image as any;
+                const img =
+                  typeof imgSource === "string"
+                    ? String(imgSource)
+                    : imgSource && imgSource.url
+                    ? String(imgSource.url)
+                    : "";
+                const uri = img ? optimizeShopifyUrl(img) : undefined;
+                return (
+                  <TouchableOpacity style={styles.catChip} activeOpacity={0.8} onPress={() => openMenuItem(item)}>
+                    <View style={styles.catChipImageWrap}>
+                      {uri ? (
+                        <FastImage
+                          source={{ uri, priority: FastImage.priority.normal, cache: FastImage.cacheControl.immutable }}
+                          style={styles.catChipImage}
+                          resizeMode={FastImage.resizeMode.cover}
+                        />
+                      ) : (
+                        <View style={styles.catChipPlaceholder}><MaterialIcons name="image" size={20} color="#9ca3af" /></View>
+                      )}
+                    </View>
+                    <Text style={styles.catChipLabel} numberOfLines={1}>{item.title}</Text>
+                  </TouchableOpacity>
+                );
+              }}
+              contentContainerStyle={styles.catChipsRow}
             />
           )}
         </View>
 
-        
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>Series</Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Collections")}>
+              <Text style={styles.sectionAction}>View all</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={styles.seriesGrid}>
+            {(seriesItems || []).map((s, idx) => {
+              const imgSource = s?.collection?.image as any;
+              const img =
+                typeof imgSource === "string"
+                  ? String(imgSource)
+                  : imgSource && imgSource.url
+                  ? String(imgSource.url)
+                  : "";
+              const uri = img ? optimizeShopifyUrl(img) : undefined;
+              return (
+                <TouchableOpacity key={String(s.id) + "_" + idx} style={styles.seriesCard} activeOpacity={0.9} onPress={() => openMenuItem(s)}>
+                  <View style={styles.seriesImageWrap}>
+                    {uri ? (
+                      <FastImage
+                        source={{ uri, priority: FastImage.priority.normal, cache: FastImage.cacheControl.immutable }}
+                        style={styles.seriesImage}
+                        resizeMode={FastImage.resizeMode.cover}
+                      />
+                    ) : (
+                      <View style={styles.seriesPlaceholder}><MaterialIcons name="image" size={22} color="#9ca3af" /></View>
+                    )}
+                  </View>
+                  <View style={styles.seriesTextWrap}>
+                    <Text style={styles.seriesTitle} numberOfLines={1}>{s.title}</Text>
+                    <TouchableOpacity style={styles.seriesCta} onPress={() => openMenuItem(s)}>
+                      <Text style={styles.seriesCtaText}>VIEW ALL</Text>
+                    </TouchableOpacity>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        <View style={styles.sectionContainer}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionTitle}>
+              {(menu?.items?.find((x) => /accessor/i.test(x.title))?.title) || "Accessories"}
+            </Text>
+          </View>
+          <FlatList
+            data={(menu?.items?.find((x) => /accessor/i.test(x.title))?.subItems) || (menu?.items?.[0]?.subItems || [])}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item, idx) => item.id + "_" + idx}
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                style={[styles.tabChip, accessoriesIndex === index ? styles.tabChipActive : null]}
+                onPress={() => setAccessoriesIndex(index)}
+              >
+                <Text style={[styles.tabChipLabel, accessoriesIndex === index ? styles.tabChipLabelActive : null]} numberOfLines={1}>
+                  {item.title}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.tabsRow}
+          />
+          
+             {loadingAccessories ? null : (
+            <View style={styles.innerlist}>
+              {accessoriesProducts.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                  <MaterialIcons name="search-off" size={44} color="#9ca3af" />
+                  <Text style={styles.emptyTitle}>No products found</Text>
+                  <Text style={styles.emptySubtitle}>Try another tab.</Text>
+                </View>
+              ) : (
+                (() => {
+                  const rows: Product[][] = [];
+                  for (let i = 0; i < accessoriesProducts.length; i += 2) {
+                    rows.push(accessoriesProducts.slice(i, i + 2));
+                  }
+                  return rows.map((row, idx) => (
+                    <View key={`row-${idx}`} style={styles.column}>
+                      {row.map((p) => (
+                        <View key={p.id} style={styles.gridHalf}>
+                          {renderGridProduct({ item: p })}
+                        </View>
+                      ))}
+                    </View>
+                  ));
+                })()
+              )}
+            </View>
+          )}
+
+          <TouchableOpacity
+            style={styles.viewAllBtn}
+            onPress={() => {
+              const accBase = menu?.items?.find((x) => /accessor/i.test(x.title)) || menu?.items?.[0];
+              const child = accBase?.subItems?.[accessoriesIndex];
+              if (child) openMenuItem(child);
+            }}
+          >
+          <Text style={styles.viewAllText}>VIEW ALL</Text>
+          </TouchableOpacity>
+        </View>
 
         <View style={styles.footerSpacer} />
       </ScrollView>
@@ -355,7 +554,7 @@ const styles = StyleSheet.create({
     height: 220,
     marginTop: 12,
     marginBottom: 14,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     borderRadius: 16,
     overflow: "hidden",
     backgroundColor: "#fff",
@@ -435,7 +634,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     marginBottom: 10,
   },
   sectionTitle: {
@@ -451,35 +650,113 @@ const styles = StyleSheet.create({
   sectionActionDisabled: {
     color: "#94a3b8",
   },
-  collectionsCtaCard: {
-    marginHorizontal: 12,
-    padding: 12,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    flexDirection: "row",
+  catChipsRow: {
+    paddingLeft: 16,
+    paddingBottom: 8,
+  },
+  catChip: {
     alignItems: "center",
-    gap: 12,
+    marginRight: 12,
+    width: 80,
+  },
+  catChipImageWrap: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    overflow: "hidden",
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  catChipPlaceholder: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  catChipLabel: {
+    marginTop: 6,
+    fontSize: 12,
+    color: "#111827",
+    fontWeight: "600",
+  },
+  seriesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+  },
+  seriesCard: {
+    width: "48%",
+    marginBottom: 16,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
-  collectionsCtaIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: "#eff6ff",
+  seriesImageWrap: {
+    height: 160,
+    backgroundColor: "#fff",
+  },
+  seriesImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
+  },
+  seriesPlaceholder: {
+    width: "100%",
+    height: "100%",
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 1,
-    borderColor: "#dbeafe",
   },
-  collectionsCtaTextWrap: { flex: 1 },
-  collectionsCtaTitle: { fontSize: 15, fontWeight: "800", color: "#0f172a" },
-  collectionsCtaSubtitle: { marginTop: 2, fontSize: 12, fontWeight: "600", color: "#64748b" },
+  seriesTextWrap: {
+    padding: 12,
+  },
+  seriesTitle: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#0f172a",
+    marginBottom: 8,
+  },
+  seriesCta: {
+    borderWidth: 1,
+    borderColor: "#111827",
+    borderRadius: 6,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  seriesCtaText: {
+    color: "#111827",
+    fontWeight: "700",
+  },
+  viewAllBtn: {
+    alignSelf: "center",
+    borderWidth: 1,
+    borderColor: "#e5e7eb",
+    borderRadius: 999,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 6,
+    backgroundColor: "#fff",
+  },
+  viewAllText: {
+    color: "#111827",
+    fontWeight: "700",
+  },
   sectionList: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
     gap: 12,
   },
   sectionLoading: {
@@ -488,7 +765,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   productCard: {
-    width: 140,
     backgroundColor: "#fff",
     borderRadius: 14,
     padding: 10,
@@ -498,9 +774,14 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
   },
+  productCardInline: {
+    width: 140,
+  },
+  productCardFull: {
+    width: "100%",
+  },
   productImageWrap: {
     width: "100%",
-    height: 120,
     borderRadius: 12,
     overflow: "hidden",
     borderWidth: 1,
@@ -508,6 +789,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#fff",
+  },
+  productImageWrapInline: {
+    height: 120,
+  },
+  productImageWrapFull: {
+    height: 160,
   },
   productImage: {
     width: "100%",
@@ -531,5 +818,59 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "700",
     color: "#111",
+  },
+  tabsRow: {
+    paddingLeft: 16,
+    paddingBottom: 8,
+  },
+  tabChip: {
+    borderColor: "#e5e7eb",
+    borderWidth: 1,
+    backgroundColor: "#fff",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    marginRight: 8,
+  },
+  tabChipActive: {
+    backgroundColor: "#111",
+    borderColor: "#111",
+  },
+  tabChipLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#111",
+  },
+  tabChipLabelActive: {
+    color: "#fff",
+  },
+  column: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+  innerlist: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  gridHalf: {
+    width: "48%",
+  },
+  emptyContainer: {
+    paddingVertical: 28,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#111827",
+  },
+  emptySubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#64748b",
   },
 });
