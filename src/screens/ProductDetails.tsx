@@ -19,7 +19,8 @@ const { width } = Dimensions.get("window");
     };
     const { product } = route.params;
     const [quantity, setQuantity] = useState(1);
-    const [loading, setLoading] = useState(false);
+    const [addToCartLoading, setAddToCartLoading] = useState(false);
+    const [buyNowLoading, setBuyNowLoading] = useState(false);
     const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
     const [isFav, setIsFav] = useState(false);
     const { accessToken, user } = useAuth();
@@ -50,18 +51,23 @@ const { width } = Dimensions.get("window");
           return;
       }
   
-      // setLoading(true); // Don't block UI for existing cart additions
       try {
+        setAddToCartLoading(true);
         const token = accessToken || undefined;
         
         if (!cartId) {
-          setLoading(true); // Still block for creation as it is complex
           const res = await createCart(product.variantId, quantity, token);
           if (res && res.id) {
               await setCartId(res.id);
               await refreshCart(res.id);
-              Alert.alert("Success", "Cart created and item added!");
-              navigation.navigate("Cart");
+              Alert.alert(
+                "Added to cart",
+                "What would you like to do?",
+                [
+                  { text: "Continue Shopping", style: "cancel" },
+                  { text: "Go to Cart", onPress: () => navigation.navigate("Cart") },
+                ]
+              );
           } else {
               Alert.alert("Error", "Could not create cart. Please try again.");
               return;
@@ -79,10 +85,15 @@ const { width } = Dimensions.get("window");
              variantTitle: product.variantTitle
           });
 
-          // Show Success immediately (or navigate)
-          Alert.alert("Success", "Item added to cart!");
-          // navigation.navigate("Cart"); // Optional: Navigate immediately
-
+          // Show Success with options
+          Alert.alert(
+            "Added to cart",
+            "What would you like to do?",
+            [
+              { text: "Continue Shopping", style: "cancel" },
+              { text: "Go to Cart", onPress: () => navigation.navigate("Cart") },
+            ]
+          );
           // Background sync
           try {
              await addToCart(cartId, product.variantId, quantity, token);
@@ -97,12 +108,12 @@ const { width } = Dimensions.get("window");
         console.error("Add to cart failed", error);
         Alert.alert("Error", "Failed to add to cart");
       } finally {
-        setLoading(false);
+        setAddToCartLoading(false);
       }
     };
   
     const handleBuyNow = async () => {
-      setLoading(true);
+      setBuyNowLoading(true);
       try {
         console.log("Buying item:", product.variantId);
         const response = await buyProduct(product.variantId, quantity);
@@ -119,7 +130,7 @@ const { width } = Dimensions.get("window");
         console.error("Buy product failed", error);
         Alert.alert("Error", "Failed to buy product");
       } finally {
-        setLoading(false);
+        setBuyNowLoading(false);
       }
     };
   
@@ -313,17 +324,17 @@ const { width } = Dimensions.get("window");
                   <TouchableOpacity 
                       style={[styles.btn, styles.cartBtn]} 
                       onPress={handleAddToCart}
-                      disabled={loading}
+                      disabled={addToCartLoading || buyNowLoading}
                   >
-                      <Text style={styles.btnText}>Add to Cart</Text>
+                      <Text style={styles.btnText}>{addToCartLoading ? "Adding..." : "Add to Cart"}</Text>
                   </TouchableOpacity>
   
                   <TouchableOpacity 
                       style={[styles.btn, styles.buyBtn]} 
                       onPress={handleBuyNow}
-                      disabled={loading}
+                      disabled={addToCartLoading || buyNowLoading}
                   >
-                      <Text style={styles.btnText}>{loading ? "Processing..." : "Buy Now"}</Text>
+                      <Text style={styles.btnText}>{buyNowLoading ? "Processing..." : "Buy Now"}</Text>
                   </TouchableOpacity>
               </>
           )}
