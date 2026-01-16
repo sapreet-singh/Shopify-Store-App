@@ -585,7 +585,7 @@ export default function HomeScreen({ navigation }: any) {
           )}
         </View>
 
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, styles.whiteSection]}>
           <View style={styles.sectionHeaderRow}>
             <Text style={styles.sectionTitle}>Series</Text>
             <TouchableOpacity onPress={() => navigation.navigate("Collections")}>
@@ -689,7 +689,7 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, styles.whiteSection]}>
             <View style={styles.sectionHeaderRowCenter}>
               <Text style={styles.sectionTitleCenter}>Sunglasses</Text>
             </View>
@@ -855,7 +855,7 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.sectionContainer}>
+        <View style={[styles.sectionContainer, styles.whiteSection]}>
           <View style={styles.sectionHeaderRowCenter}>
             <Text style={styles.sectionTitleCenter}>Styles</Text>
           </View>
@@ -1056,6 +1056,11 @@ const styles = StyleSheet.create({
 
   sectionContainer: {
     marginTop: 12,
+    paddingTop: 20,
+  },
+  whiteSection: {
+    backgroundColor: "#fff",
+    paddingBottom: 12,
   },
   sectionHeaderRow: {
     flexDirection: "row",
@@ -1077,7 +1082,7 @@ const styles = StyleSheet.create({
     color: "#111",
   },
   sectionTitleCenter: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: "700",
     color: "#111",
     textAlign: "center",
@@ -1190,8 +1195,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    marginTop: 12,
-    marginBottom: 6,
+    marginTop: 0,
+    marginBottom: 20,
     backgroundColor: "#fff",
   },
   viewAllText: {
