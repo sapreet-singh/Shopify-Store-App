@@ -29,6 +29,15 @@ export interface Product {
     products: Product[];
   }
 
+  export interface CategorySummary {
+    categoryId: string;
+    categoryTitle: string;
+    categoryHandle: string;
+    categoryImage?: {
+      url: string;
+    };
+  }
+
   export interface PredictiveSuggestion {
     type: "product" | "query";
     title: string;
@@ -119,6 +128,31 @@ export interface Product {
       title: String(data.title || ""),
       items: Array.isArray(data.items) ? data.items.map(mapItem) : [],
     };
+  };
+
+  export const getCategories = async (): Promise<CategorySummary[]> => {
+    const res = await API.get("/api/products/categories");
+    const data = Array.isArray(res.data)
+      ? res.data
+      : Array.isArray(res.data?.items)
+      ? res.data.items
+      : [];
+    return data
+      .map((c: any) => {
+        const img =
+          typeof c.categoryImage === "string"
+            ? { url: normalizeUrl(c.categoryImage)! }
+            : c.categoryImage && typeof c.categoryImage.url === "string"
+            ? { url: normalizeUrl(c.categoryImage.url)! }
+            : undefined;
+        return {
+          categoryId: String(c.categoryId || c.id || ""),
+          categoryTitle: String(c.categoryTitle || c.title || ""),
+          categoryHandle: String(c.categoryHandle || c.handle || ""),
+          categoryImage: img,
+        } as CategorySummary;
+      })
+      .filter((c: CategorySummary) => !!c.categoryHandle);
   };
   
   export const getCollectionByHandle = async (handle: string): Promise<ProductCollection | null> => {

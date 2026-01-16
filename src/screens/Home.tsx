@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
 
-import { Product, ProductCollection, searchProducts, getMenu, MenuResponse, MenuItem, getCollectionByHandle, getNewArrivals } from "../api/products";
+import { Product, ProductCollection, searchProducts, getMenu, MenuResponse, MenuItem, getCollectionByHandle, getNewArrivals, CategorySummary, getCategories } from "../api/products";
 
 import CustomHeader from "../components/CustomHeader";
 import { CategoryChipSkeleton } from "../components/Skeletons";
@@ -50,7 +50,8 @@ export default function HomeScreen({ navigation }: any) {
   const [_searchLoading, setSearchLoading] = useState(false);
   const [showSearchOverlay, setShowSearchOverlay] = useState(false);
   const [menu, setMenu] = useState<MenuResponse | null>(null);
-  const [loadingMenu, setLoadingMenu] = useState(false);
+  const [categories, setCategories] = useState<CategorySummary[]>([]);
+  const [loadingCategories, setLoadingCategories] = useState(false);
   const [seriesItems, setSeriesItems] = useState<MenuItem[]>([]);
   const [newArrivals, setNewArrivals] = useState<Product[]>([]);
   const [tabIndex, setTabIndex] = useState(0);
@@ -87,7 +88,6 @@ export default function HomeScreen({ navigation }: any) {
 
   useEffect(() => {
     let isActive = true;
-    setLoadingMenu(true);
     getMenu()
       .then((m) => {
         if (!isActive) return;
@@ -110,7 +110,24 @@ export default function HomeScreen({ navigation }: any) {
       .catch(() => undefined)
       .finally(() => {
         if (!isActive) return;
-        setLoadingMenu(false);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let isActive = true;
+    setLoadingCategories(true);
+    getCategories()
+      .then((items) => {
+        if (!isActive) return;
+        setCategories(items);
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        if (!isActive) return;
+        setLoadingCategories(false);
       });
     return () => {
       isActive = false;
@@ -156,6 +173,30 @@ export default function HomeScreen({ navigation }: any) {
       }
       navigation.navigate("ProductList", { category, products: category.products });
     } catch {}
+  }, [navigation]);
+
+  const openCategory = useCallback(async (category: CategorySummary) => {
+    const handle = String(category.categoryHandle || "").trim();
+    const title = String(category.categoryTitle || "").trim();
+    try {
+      let collection: ProductCollection | null = null;
+      if (handle) {
+        collection = await getCollectionByHandle(handle);
+      }
+      if (!collection) {
+        const results = await searchProducts(title || handle);
+        collection = {
+          categoryId: category.categoryId || handle || title,
+          categoryTitle: title || handle || "",
+          categoryHandle: handle || title || "",
+          categoryImage: category.categoryImage,
+          products: results,
+        };
+      }
+      navigation.navigate("ProductList", { category: collection, products: collection.products });
+    } catch {
+      Alert.alert("Error", "Failed to load products.");
+    }
   }, [navigation]);
 
   const loadTabItems = useCallback(async () => {
@@ -497,7 +538,7 @@ export default function HomeScreen({ navigation }: any) {
               <Text style={styles.sectionAction}>View all</Text>
             </TouchableOpacity>
           </View>
-          {loadingMenu || !menu ? (
+          {loadingCategories || categories.length === 0 ? (
             <FlatList
               data={[1, 2, 3, 4, 5]}
               horizontal
@@ -508,21 +549,15 @@ export default function HomeScreen({ navigation }: any) {
             />
           ) : (
             <FlatList
-              data={menu.items.slice(0, 6)}
+              data={categories.slice(0, 6)}
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyExtractor={(item, idx) => item.id + "_" + idx}
+              keyExtractor={(item, idx) => item.categoryId + "_" + idx}
               renderItem={({ item }) => {
-                const imgSource = item?.collection?.image as any;
-                const img =
-                  typeof imgSource === "string"
-                    ? String(imgSource)
-                    : imgSource && imgSource.url
-                    ? String(imgSource.url)
-                    : "";
+                const img = item.categoryImage?.url || "";
                 const uri = img ? optimizeShopifyUrl(img) : undefined;
                 return (
-                  <TouchableOpacity style={styles.catChip} activeOpacity={0.8} onPress={() => openMenuItem(item)}>
+                  <TouchableOpacity style={styles.catChip} activeOpacity={0.8} onPress={() => openCategory(item)}>
                     <View style={styles.catChipImageWrap}>
                       {uri ? (
                         <FastImage
@@ -534,7 +569,7 @@ export default function HomeScreen({ navigation }: any) {
                         <View style={styles.catChipPlaceholder}><MaterialIcons name="image" size={20} color="#9ca3af" /></View>
                       )}
                     </View>
-                    <Text style={styles.catChipLabel} numberOfLines={1}>{item.title}</Text>
+                    <Text style={styles.catChipLabel} numberOfLines={1}>{item.categoryTitle}</Text>
                   </TouchableOpacity>
                 );
               }}
