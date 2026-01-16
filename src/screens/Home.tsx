@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { View, FlatList, Text, Image, TouchableOpacity, StyleSheet, Alert, Dimensions, ScrollView, } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 
 import { Product, ProductCollection, searchProducts, getMenu, MenuResponse, MenuItem, getCollectionByHandle, getNewArrivals, CategorySummary, getCategories } from "../api/products";
 
@@ -11,7 +12,7 @@ import FastImage from "react-native-fast-image";
 import { useCart } from "../context/CartContext";
 
 const { width } = Dimensions.get("window");
-const HERO_WIDTH = width - 24;
+const HERO_WIDTH = width - 32;
 
 const formatPrice = (v: number | string) => {
   const n = Number(v);
@@ -115,6 +116,12 @@ export default function HomeScreen({ navigation }: any) {
       isActive = false;
     };
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
+    }, [])
+  );
 
   useEffect(() => {
     let isActive = true;
@@ -931,7 +938,14 @@ export default function HomeScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        <View style={styles.footerSpacer} />
+        <View style={styles.footerSpacer}>
+          <View style={styles.footerImageWrap}>
+            <Image
+              source={require("../assets/footer/Happy_Customer.png")}
+              style={styles.footerImage}
+            />
+          </View>
+        </View>
       </ScrollView>
     </View>
   );
@@ -943,10 +957,23 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8fafc",
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 16,
   },
   footerSpacer: {
-    height: 32,
+    paddingHorizontal: 16,
+    paddingBottom: 24,
+    paddingTop: 8,
+  },
+  footerImageWrap: {
+    height: 300,
+    borderRadius: 14,
+    overflow: "hidden",
+    backgroundColor: "#fff",
+  },
+  footerImage: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
 
   hero: {
@@ -955,7 +982,6 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     marginHorizontal: 16,
     borderRadius: 16,
-    overflow: "hidden",
     backgroundColor: "#fff",
     elevation: 3,
     shadowColor: "#000",
@@ -965,7 +991,7 @@ const styles = StyleSheet.create({
   },
 
   heroSlide: { width: HERO_WIDTH, height: "100%" },
-  heroImage: { width: HERO_WIDTH, height: "100%", resizeMode: "cover" },
+  heroImage: { width: HERO_WIDTH, height: "100%", resizeMode: "cover", borderRadius: 16 },
   heroOverlay: {
     position: "absolute",
     left: 0,
@@ -973,6 +999,8 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: 120,
     backgroundColor: "rgba(0,0,0,0.25)",
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   heroTextWrap: {
     position: "absolute",
@@ -1063,7 +1091,7 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
   },
   catChipsRow: {
-    paddingLeft: 16,
+    paddingHorizontal: 16,
     paddingBottom: 8,
   },
   catChip: {
@@ -1110,7 +1138,6 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     backgroundColor: "#fff",
     borderRadius: 14,
-    overflow: "hidden",
     elevation: 2,
     shadowColor: "#000",
     shadowOpacity: 0.06,
@@ -1120,6 +1147,9 @@ const styles = StyleSheet.create({
   seriesImageWrap: {
     height: 160,
     backgroundColor: "#fff",
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
+    overflow: "hidden",
   },
   seriesImage: {
     width: "100%",
@@ -1151,6 +1181,7 @@ const styles = StyleSheet.create({
   seriesCtaText: {
     color: "#111827",
     fontWeight: "700",
+    fontSize: 13,
   },
   viewAllBtn: {
     alignSelf: "center",
@@ -1159,7 +1190,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    marginTop: 8,
+    marginTop: 12,
     marginBottom: 6,
     backgroundColor: "#fff",
   },
@@ -1232,7 +1263,7 @@ const styles = StyleSheet.create({
     color: "#111",
   },
   tabsRow: {
-    paddingLeft: 16,
+    paddingHorizontal: 16,
     paddingBottom: 8,
   },
   tabChip: {
